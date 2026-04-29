@@ -74,8 +74,9 @@ export default function Cotizador() {
 
   // FOB
   const [fobCliente, setFobCliente] = useState('');
+  const [fobDeclaradoCliente, setFobDeclaradoCliente] = useState(''); // FOB que le decís al cliente que declarás
   const [fobReal, setFobReal] = useState('');
-  const [fobDeclarado, setFobDeclarado] = useState('');
+  const [fobDeclarado, setFobDeclarado] = useState(''); // FOB que realmente declarás en aduana
 
   // Flete
   const [fleteCliente, setFleteCliente] = useState('');
@@ -128,6 +129,7 @@ export default function Cotizador() {
     const pMrg = margenVenta / 100;
 
     const fobC = n(fobCliente);
+    const fobDC = n(fobDeclaradoCliente) || fobC; // FOB declarado al cliente (base para aranceles del cliente)
     const fobR = n(fobReal);
     const fobD = n(fobDeclarado) || fobR;
     const fleteC = n(fleteCliente);
@@ -137,8 +139,9 @@ export default function Cotizador() {
     const fleteR = n(fleteRealInput) || (n(refFlete) * ratio);
 
     // === LADO CLIENTE (lo que cobro) ===
-    const seguroC = fobC * 0.01;
-    const cifC = fobC + fleteC + seguroC;
+    // El seguro y el CIF para aranceles se calculan sobre el FOB declarado al cliente
+    const seguroC = fobDC * 0.01;
+    const cifC = fobDC + fleteC + seguroC;
     const derechosC = cifC * pDer;
     const tasaC = cifC * pTas;
     const baseIvaC = cifC + derechosC + tasaC;
@@ -152,6 +155,7 @@ export default function Cotizador() {
     const navC = n(gNaviera);
     const logC = n(gLogistica);
     const totalGastosC = despaC + termC + navC + logC;
+    // El costo total usa FOB CLIENTE (lo que paga por la mercadería) + aranceles/gastos calculados sobre FOB declarado
     const costoConIva = fobC + totalArancC + totalGastosC;
     const costoSinIva = costoConIva - ivaC - ivaAdicC;
 
@@ -191,7 +195,7 @@ export default function Cotizador() {
 
     return {
       // cliente
-      seguroC, cifC, derechosC, tasaC, baseIvaC, ivaC, ivaAdicC, gananciasC, iibbC,
+      fobDC, seguroC, cifC, derechosC, tasaC, baseIvaC, ivaC, ivaAdicC, gananciasC, iibbC,
       totalArancC, despaC, termC, navC, logC, totalGastosC, costoConIva, costoSinIva,
       honorarios, gastFac, precioConFac, precioSinFac,
       margenFOB, margenFlete, margenAranceles, margenGastos, gananciaTotal,
@@ -204,7 +208,7 @@ export default function Cotizador() {
       m3Cont, ratio, fobR,
     };
   }, [
-    fobCliente, fobReal, fobDeclarado, fleteCliente, fleteRealInput,
+    fobCliente, fobDeclaradoCliente, fobReal, fobDeclarado, fleteCliente, fleteRealInput,
     m3Merch, contenedor,
     pctDerechos, pctTasa, pctIva, pagaIva, pctIvaAdic, pagaIvaAdic,
     pctGanancias, pagaGanancias, pctIIBB, pagaIIBB,
@@ -297,11 +301,21 @@ export default function Cotizador() {
 
                 <SectionLabel>FOB — Valor de la Mercadería</SectionLabel>
                 {mode === 'cliente' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                    <Field label="FOB cliente"><NumInput value={fobCliente} onChange={setFobCliente} /></Field>
-                    <Field label="FOB real (proveedor)"><NumInput value={fobReal} onChange={setFobReal} /></Field>
-                    <Field label="FOB declarado aduana"><NumInput value={fobDeclarado} onChange={setFobDeclarado} placeholder="= real si no difiere" /></Field>
-                  </div>
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                      <Field label="FOB cliente (lo que cobra por la mercadería)"><NumInput value={fobCliente} onChange={setFobCliente} /></Field>
+                      <Field label="FOB declarado al cliente (base aranceles cliente)">
+                        <NumInput value={fobDeclaradoCliente} onChange={setFobDeclaradoCliente} placeholder="= FOB cliente si no difiere" />
+                      </Field>
+                    </div>
+                    <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.75rem', color: '#92400e' }}>
+                      El FOB Declarado al Cliente es el valor que le informás que vas a declarar en aduana. Los aranceles de su cotización se calculan sobre este valor.
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <Field label="FOB real (costo al proveedor)"><NumInput value={fobReal} onChange={setFobReal} /></Field>
+                      <Field label="FOB que realmente declarás en aduana"><NumInput value={fobDeclarado} onChange={setFobDeclarado} placeholder="= real si no difiere" /></Field>
+                    </div>
+                  </>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <Field label="FOB real (proveedor)"><NumInput value={fobReal} onChange={setFobReal} /></Field>
@@ -552,6 +566,10 @@ export default function Cotizador() {
                     <p style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b' }}>{usd(c.costoSinIva)}</p>
                   </div>
                 </div>
+                <div style={{ marginTop: '0.6rem', background: '#fff7ed', borderRadius: '8px', padding: '0.5rem 0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#92400e' }}>FOB declarado al cliente · CIF base aranceles</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#d97706' }}>{usd(c.fobDC)} · {usd(c.cifC)}</span>
+                </div>
               </div>
 
               {/* Rentabilidad */}
@@ -598,7 +616,8 @@ export default function Cotizador() {
                   ))}
                 </div>
                 {[
-                  ['FOB', c.fobR, parseFloat(fobCliente) || 0],
+                  ['FOB Mercadería', c.fobR, parseFloat(fobCliente) || 0],
+                  ['FOB Declarado (cliente)', null, c.fobDC],
                   ['Flete', c.fleteR, parseFloat(fleteCliente) || 0],
                   ['Derechos', c.derechosR, c.derechosC],
                   ['IVA', c.ivaR, c.ivaC],
@@ -607,12 +626,12 @@ export default function Cotizador() {
                   ['IIBB', c.iibbR, c.iibbC],
                   ['Gastos Loc.', c.totalGastosR, c.totalGastosC],
                 ].map(([label, real, cobrado]) => {
-                  const diff = cobrado - real;
+                  const diff = real !== null ? cobrado - real : null;
                   return (
                     <div key={label} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', padding: '0.3rem 0', borderBottom: '1px solid #f8fafc' }}>
                       <span style={{ fontSize: '0.8rem', color: '#475569' }}>{label}</span>
-                      <span style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'right' }}>{usd(real)}</span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, textAlign: 'right', color: diff >= 0 ? '#10b981' : '#ef4444' }}>{usd(cobrado)}</span>
+                      <span style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'right' }}>{real !== null ? usd(real) : '—'}</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, textAlign: 'right', color: diff === null ? '#2563eb' : diff >= 0 ? '#10b981' : '#ef4444' }}>{usd(cobrado)}</span>
                     </div>
                   );
                 })}
