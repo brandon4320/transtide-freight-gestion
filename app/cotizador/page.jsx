@@ -1,60 +1,79 @@
 'use client';
 import { useState, useMemo } from 'react';
 
+// ─── helpers ──────────────────────────────────────────────────────────────────
 const usd = (n) => {
   if (n === null || n === undefined || isNaN(n)) return '—';
-  return '$ ' + (Math.round(n * 100) / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '$ ' + (Math.round(n * 100) / 100).toLocaleString('es-AR', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
+};
+const n = (v) => parseFloat(v) || 0;
+
+// ─── container presets ────────────────────────────────────────────────────────
+const PRESETS = {
+  '20': { label: '20 Pies', m3: 30, flete: 3500, despachante: 2000, terminal: 2300, naviera: 800, logistica: 2150 },
+  '40hq': { label: '40 Pies / HQ', m3: 60, flete: 4500, despachante: 2000, terminal: 2300, naviera: 800, logistica: 2150 },
+  'fr': { label: 'Flat Rack', m3: null, flete: 6000, despachante: 2200, terminal: 2500, naviera: 900, logistica: 2150 },
 };
 
-const fi = { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem', color: '#1e293b', background: '#fff', outline: 'none' };
-const fl = { display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' };
+// ─── small UI primitives ──────────────────────────────────────────────────────
+const LBL = { display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', marginBottom: '0.28rem', textTransform: 'uppercase', letterSpacing: '0.05em' };
+const INP = { width: '100%', padding: '0.5rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem', color: '#1e293b', background: '#fff', outline: 'none' };
+const SECL = { fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#cbd5e1', margin: '1rem 0 0.5rem', paddingBottom: '0.35rem', borderBottom: '1px solid #f1f5f9' };
 
-function Field({ label, children }) {
-  return <div style={{ marginBottom: '0.9rem' }}><label style={fl}>{label}</label>{children}</div>;
-}
-
-function NumInput({ value, onChange, placeholder = '0', step = 'any', min = 0 }) {
-  return <input type="number" step={step} min={min} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} style={fi} />;
-}
-
-function TextInput({ value, onChange, placeholder = '' }) {
-  return <input type="text" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} style={fi} />;
-}
-
-function Toggle({ label, checked, onChange }) {
+function F({ label, children, half }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f8fafc' }}>
-      <span style={{ fontSize: '0.85rem', color: '#475569' }}>{label}</span>
-      <button onClick={() => onChange(!checked)} style={{ padding: '0.2rem 0.8rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, background: checked ? '#d1fae5' : '#fee2e2', color: checked ? '#059669' : '#dc2626', minWidth: '44px' }}>
+    <div style={{ marginBottom: '0.75rem', ...(half ? {} : {}) }}>
+      {label && <label style={LBL}>{label}</label>}
+      {children}
+    </div>
+  );
+}
+function NI({ value, onChange, placeholder = '0' }) {
+  return <input type="number" step="any" min="0" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} style={INP} />;
+}
+function TI({ value, onChange, placeholder = '' }) {
+  return <input type="text" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} style={INP} />;
+}
+function PagaToggle({ label, checked, onChange }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.45rem 0', borderBottom: '1px solid #f8fafc' }}>
+      <span style={{ fontSize: '0.83rem', color: '#475569' }}>{label}</span>
+      <button onClick={() => onChange(!checked)} style={{ padding: '0.18rem 0.75rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700, minWidth: '42px', background: checked ? '#d1fae5' : '#fee2e2', color: checked ? '#059669' : '#dc2626' }}>
         {checked ? 'SÍ' : 'NO'}
       </button>
     </div>
   );
 }
-
-function SectionLabel({ children }) {
-  return <p style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#cbd5e1', margin: '1.25rem 0 0.6rem', paddingBottom: '0.4rem', borderBottom: '1px solid #f1f5f9' }}>{children}</p>;
-}
-
-function StatBox({ label, value, sub, color = '#2563eb', big = false }) {
+function Pill({ active, onClick, children }) {
   return (
-    <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '1rem', flex: 1 }}>
-      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>{label}</p>
-      <p style={{ fontSize: big ? '1.5rem' : '1.15rem', fontWeight: 800, color, lineHeight: 1.1 }}>{value}</p>
-      {sub && <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>{sub}</p>}
-    </div>
+    <button onClick={onClick} style={{ padding: '0.45rem 1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.15s', background: active ? '#2563eb' : 'transparent', color: active ? '#fff' : '#94a3b8' }}>
+      {children}
+    </button>
   );
 }
-
-function ResultRow({ label, value, diff, dimmed }) {
+function Tab({ active, onClick, children }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f8fafc' }}>
-      <span style={{ fontSize: '0.82rem', color: dimmed ? '#94a3b8' : '#475569' }}>{label}</span>
-      <div style={{ textAlign: 'right' }}>
-        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: dimmed ? '#94a3b8' : '#1e293b' }}>{usd(value)}</span>
+    <button onClick={onClick} style={{ flex: 1, padding: '0.42rem 0.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, transition: 'all 0.15s', background: active ? '#f0f7ff' : 'transparent', color: active ? '#2563eb' : '#94a3b8' }}>
+      {children}
+    </button>
+  );
+}
+function Card({ children, style = {} }) {
+  return <div style={{ background: '#fff', borderRadius: '16px', padding: '1.2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.03)', ...style }}>{children}</div>;
+}
+function RRow({ label, val, val2, diff, dimmed, bold }) {
+  const s = { fontSize: bold ? '0.88rem' : '0.82rem', fontWeight: bold ? 700 : 400 };
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.38rem 0', borderBottom: '1px solid #f8fafc' }}>
+      <span style={{ ...s, color: dimmed ? '#cbd5e1' : '#475569' }}>{label}</span>
+      <div style={{ display: 'flex', gap: '1rem' }}>
+        {val2 !== undefined && <span style={{ ...s, color: '#64748b' }}>{usd(val2)}</span>}
+        <span style={{ ...s, color: bold ? '#1e293b' : dimmed ? '#cbd5e1' : '#1e293b' }}>{usd(val)}</span>
         {diff !== undefined && (
-          <span style={{ fontSize: '0.72rem', marginLeft: '0.5rem', color: diff >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
-            {diff >= 0 ? '+' : ''}{usd(diff)}
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '70px', textAlign: 'right', color: diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#94a3b8' }}>
+            {diff > 0 ? '+' : ''}{usd(diff)}
           </span>
         )}
       </div>
@@ -62,583 +81,602 @@ function ResultRow({ label, value, diff, dimmed }) {
   );
 }
 
+// ─── main component ───────────────────────────────────────────────────────────
 export default function Cotizador() {
-  // Mode & Tab
-  const [mode, setMode] = useState('cliente');   // 'propia' | 'cliente'
-  const [tab, setTab] = useState('datos');        // 'datos' | 'aranceles' | 'gastos' | 'cierre'
 
-  // Identificación
+  // mode & tab
+  const [mode, setMode] = useState('cliente');   // 'cliente' | 'personal'
+  const [tab, setTab] = useState('cliente_fob'); // varies per mode
+
+  // ── container config ──
+  const [contType, setContType] = useState('40hq');
+  const [contM3, setContM3] = useState({ '20': 30, '40hq': 60, 'fr': 60 });
+  const [contCosts, setContCosts] = useState({
+    '20':  { flete: 3500, despachante: 2000, terminal: 2300, naviera: 800, logistica: 2150 },
+    '40hq':{ flete: 4500, despachante: 2000, terminal: 2300, naviera: 800, logistica: 2150 },
+    'fr':  { flete: 6000, despachante: 2200, terminal: 2500, naviera: 900, logistica: 2150 },
+  });
+
+  const setCost = (type, field, val) =>
+    setContCosts(prev => ({ ...prev, [type]: { ...prev[type], [field]: parseFloat(val) || 0 } }));
+  const setM3 = (type, val) =>
+    setContM3(prev => ({ ...prev, [type]: parseFloat(val) || 0 }));
+
+  const curM3 = contM3[contType];
+  const curCosts = contCosts[contType];
+
+  // ── identification ──
   const [cliente, setCliente] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [clasificacion, setClasificacion] = useState('');
 
-  // FOB
-  const [fobCliente, setFobCliente] = useState('');
-  const [fobDeclaradoCliente, setFobDeclaradoCliente] = useState(''); // FOB que le decís al cliente que declarás
-  const [fobReal, setFobReal] = useState('');
-  const [fobDeclarado, setFobDeclarado] = useState(''); // FOB que realmente declarás en aduana
+  // ── LADO CLIENTE ──
+  const [fobCliente, setFobCliente] = useState('');       // lo que cobro por la mercadería
+  const [fobDecCli, setFobDecCli] = useState('');         // lo que le digo que voy a declarar
+  const [fleteCli, setFleteCli] = useState('');           // flete cobrado
+  const [gDes, setGDes] = useState('');                   // gastos locales cobrados
+  const [gTer, setGTer] = useState('');
+  const [gNav, setGNav] = useState('');
+  const [gLog, setGLog] = useState('');
 
-  // Flete
-  const [fleteCliente, setFleteCliente] = useState('');
-  const [fleteRealInput, setFleteRealInput] = useState('');
+  // ── LADO REAL ──
+  const [fobReal, setFobReal] = useState('');             // lo que me costó a mí
+  const [fobDecReal, setFobDecReal] = useState('');       // lo que realmente declaro
+  const [fleteRealInput, setFleteRealInput] = useState(''); // si está vacío, se calcula del prorrateo
+  const [m3Merch, setM3Merch] = useState('');             // m³ de mi mercadería en el contenedor
 
-  // Contenedor
-  const [m3Merch, setM3Merch] = useState('');
-  const [contenedor, setContenedor] = useState('40');
+  // ── ARANCELES ──
+  const [pDer, setPDer] = useState(35);
+  const [pTas, setPTas] = useState(0);
+  const [pIva, setPIva] = useState(21);    const [pagaIva, setPagaIva] = useState(true);
+  const [pIvaA, setPIvaA] = useState(20);  const [pagaIvaA, setPagaIvaA] = useState(false);
+  const [pGan, setPGan] = useState(6);     const [pagaGan, setPagaGan] = useState(false);
+  const [pIIBB, setPIIBB] = useState(2.5); const [pagaIIBB, setPagaIIBB] = useState(false);
 
-  // Aranceles (en %)
-  const [pctDerechos, setPctDerechos] = useState(35);
-  const [pctTasa, setPctTasa] = useState(0);
-  const [pctIva, setPctIva] = useState(21);
-  const [pagaIva, setPagaIva] = useState(true);
-  const [pctIvaAdic, setPctIvaAdic] = useState(20);
-  const [pagaIvaAdic, setPagaIvaAdic] = useState(false);
-  const [pctGanancias, setPctGanancias] = useState(6);
-  const [pagaGanancias, setPagaGanancias] = useState(false);
-  const [pctIIBB, setPctIIBB] = useState(2.5);
-  const [pagaIIBB, setPagaIIBB] = useState(false);
+  // ── CIERRE ──
+  const [pHon, setPHon] = useState(4);
+  const [pFac, setPFac] = useState(8);
+  const [pMrg, setPMrg] = useState(20); // solo modo personal
 
-  // Gastos locales cobrados al cliente (modo cliente)
-  const [gDespachante, setGDespachante] = useState('');
-  const [gTerminal, setGTerminal] = useState('');
-  const [gNaviera, setGNaviera] = useState('');
-  const [gLogistica, setGLogistica] = useState('');
-
-  // Costos de referencia para prorrateo
-  const [refFlete, setRefFlete] = useState(4500);
-  const [refDespachante, setRefDespachante] = useState(2000);
-  const [refTerminal, setRefTerminal] = useState(2300);
-  const [refNaviera, setRefNaviera] = useState(800);
-  const [refLogistica, setRefLogistica] = useState(2150);
-
-  // Cierre
-  const [pctHonorarios, setPctHonorarios] = useState(4);
-  const [pctFacturacion, setPctFacturacion] = useState(8);
-  const [margenVenta, setMargenVenta] = useState(20); // solo modo propia
-
+  // ─── calculations ─────────────────────────────────────────────────────────
   const c = useMemo(() => {
-    const n = (v) => parseFloat(v) || 0;
-    const pDer = pctDerechos / 100;
-    const pTas = pctTasa / 100;
-    const pIva = pctIva / 100;
-    const pIvaA = pctIvaAdic / 100;
-    const pGan = pctGanancias / 100;
-    const pIIBB = pctIIBB / 100;
-    const pHon = pctHonorarios / 100;
-    const pFac = pctFacturacion / 100;
-    const pMrg = margenVenta / 100;
+    const der = pDer / 100, tas = pTas / 100, iva = pIva / 100,
+          ivaA = pIvaA / 100, gan = pGan / 100, iibb = pIIBB / 100,
+          hon = pHon / 100, fac = pFac / 100, mrg = pMrg / 100;
 
-    const fobC = n(fobCliente);
-    const fobDC = n(fobDeclaradoCliente) || fobC; // FOB declarado al cliente (base para aranceles del cliente)
-    const fobR = n(fobReal);
-    const fobD = n(fobDeclarado) || fobR;
-    const fleteC = n(fleteCliente);
+    const fobC  = n(fobCliente);
+    const fobDC = n(fobDecCli) || fobC;       // FOB declarado al cliente (base aranceles cliente)
+    const fobR  = n(fobReal);
+    const fobDR = n(fobDecReal) || fobR;      // FOB declarado real (base aranceles reales)
+
     const m3val = n(m3Merch);
-    const m3Cont = contenedor === '20' ? 30 : 60;
-    const ratio = m3val > 0 ? m3val / m3Cont : 1;
-    const fleteR = n(fleteRealInput) || (n(refFlete) * ratio);
+    const ratio = m3val > 0 && curM3 > 0 ? m3val / curM3 : 1;
+    const fleteR = n(fleteRealInput) || (curCosts.flete * ratio);
 
-    // === LADO CLIENTE (lo que cobro) ===
-    // El seguro y el CIF para aranceles se calculan sobre el FOB declarado al cliente
-    const seguroC = fobDC * 0.01;
-    const cifC = fobDC + fleteC + seguroC;
-    const derechosC = cifC * pDer;
-    const tasaC = cifC * pTas;
-    const baseIvaC = cifC + derechosC + tasaC;
-    const ivaC = baseIvaC * pIva;
-    const ivaAdicC = baseIvaC * pIvaA;
-    const gananciasC = baseIvaC * pGan;
-    const iibbC = baseIvaC * pIIBB;
-    const totalArancC = fleteC + seguroC + derechosC + tasaC + ivaC + ivaAdicC + gananciasC + iibbC;
-    const despaC = n(gDespachante);
-    const termC = n(gTerminal);
-    const navC = n(gNaviera);
-    const logC = n(gLogistica);
-    const totalGastosC = despaC + termC + navC + logC;
-    // El costo total usa FOB CLIENTE (lo que paga por la mercadería) + aranceles/gastos calculados sobre FOB declarado
-    const costoConIva = fobC + totalArancC + totalGastosC;
-    const costoSinIva = costoConIva - ivaC - ivaAdicC;
+    // ── LADO CLIENTE ──
+    const segC   = fobDC * 0.01;
+    const cifC   = fobDC + n(fleteCli) + segC;
+    const derC   = cifC * der;
+    const tasC   = cifC * tas;
+    const bivC   = cifC + derC + tasC;
+    const ivaC   = bivC * iva;
+    const ivaAC  = bivC * ivaA;
+    const ganC   = bivC * gan;
+    const iibbC  = bivC * iibb;
+    const arcC   = n(fleteCli) + segC + derC + tasC + ivaC + ivaAC + ganC + iibbC;
+    const desC   = n(gDes), terC = n(gTer), navC = n(gNav), logC = n(gLog);
+    const gasC   = desC + terC + navC + logC;
+    const totConC = fobC + arcC + gasC;
+    const totSinC = totConC - ivaC - ivaAC;
 
-    // === LADO REAL (mi costo) ===
-    const seguroR = fobD * 0.01;
-    const cifR = fobD + fleteR + seguroR;
-    const derechosR = cifR * pDer;
-    const tasaR = cifR * pTas;
-    const baseIvaR = cifR + derechosR + tasaR;
-    const ivaR = pagaIva ? baseIvaR * pIva : 0;
-    const ivaAdicR = pagaIvaAdic ? baseIvaR * pIvaA : 0;
-    const gananciasR = pagaGanancias ? baseIvaR * pGan : 0;
-    const iibbR = pagaIIBB ? baseIvaR * pIIBB : 0;
-    const despaR = n(refDespachante) * ratio;
-    const termR = n(refTerminal) * ratio;
-    const navR = n(refNaviera) * ratio;
-    const logR = n(refLogistica) * ratio;
-    const totalGastosR = despaR + termR + navR + logR;
-    const costoRealConIva = fobR + fleteR + seguroR + derechosR + tasaR + ivaR + ivaAdicR + gananciasR + iibbR + totalGastosR;
-    const costoRealSinIva = costoRealConIva - ivaR - ivaAdicR;
+    // ── LADO REAL ──
+    const segR   = fobDR * 0.01;
+    const cifR   = fobDR + fleteR + segR;
+    const derR   = cifR * der;
+    const tasR   = cifR * tas;
+    const bivR   = cifR + derR + tasR;
+    const ivaR   = pagaIva  ? bivR * iva  : 0;
+    const ivaAR  = pagaIvaA ? bivR * ivaA : 0;
+    const ganR   = pagaGan  ? bivR * gan  : 0;
+    const iibbR  = pagaIIBB ? bivR * iibb : 0;
+    const desR   = curCosts.despachante * ratio;
+    const terR   = curCosts.terminal    * ratio;
+    const navR   = curCosts.naviera     * ratio;
+    const logR   = curCosts.logistica   * ratio;
+    const gasR   = desR + terR + navR + logR;
+    const totConR = fobR + fleteR + segR + derR + tasR + ivaR + ivaAR + ganR + iibbR + gasR;
+    const totSinR = totConR - ivaR - ivaAR;
 
-    // === ESCENARIOS (cliente) ===
-    const honorarios = costoConIva * pHon;
-    const gastFac = costoConIva * pFac;
-    const precioConFac = costoConIva + honorarios + gastFac;
-    const precioSinFac = costoConIva + honorarios;
+    // ── ESCENARIOS (solo cliente) ──
+    const honorarios = totConC * hon;
+    const gastFac    = totConC * fac;
+    const precioConF = totConC + honorarios + gastFac;
+    const precioSinF = totConC + honorarios;
 
-    // === RENTABILIDAD (cliente) ===
-    const margenFOB = fobC - fobR;
-    const margenFlete = fleteC - fleteR;
-    const margenAranceles = (derechosC - derechosR) + (tasaC - tasaR) + (ivaC - ivaR) + (ivaAdicC - ivaAdicR) + (gananciasC - gananciasR) + (iibbC - iibbR);
-    const margenGastos = totalGastosC - totalGastosR;
-    const gananciaTotal = margenFOB + margenFlete + margenAranceles + margenGastos + honorarios;
+    // ── RENTABILIDAD ──
+    const mFOB  = fobC - fobR;
+    const mFlet = n(fleteCli) - fleteR;
+    const mDer  = derC - derR;
+    const mTas  = tasC - tasR;
+    const mIva  = ivaC - ivaR;
+    const mIvaA = ivaAC - ivaAR;
+    const mGan  = ganC - ganR;
+    const mIIBB = iibbC - iibbR;
+    const mAranc = mDer + mTas + mIva + mIvaA + mGan + mIIBB;
+    const mGas  = gasC - gasR;
+    const ganTotal = mFOB + mFlet + mAranc + mGas + honorarios;
 
-    // === MODO PROPIA ===
-    const precioVenta = costoRealConIva * (1 + pMrg);
+    // ── modo personal ──
+    const precioVenta = totConR * (1 + mrg);
 
     return {
-      // cliente
-      fobDC, seguroC, cifC, derechosC, tasaC, baseIvaC, ivaC, ivaAdicC, gananciasC, iibbC,
-      totalArancC, despaC, termC, navC, logC, totalGastosC, costoConIva, costoSinIva,
-      honorarios, gastFac, precioConFac, precioSinFac,
-      margenFOB, margenFlete, margenAranceles, margenGastos, gananciaTotal,
-      // real
-      fleteR, seguroR, cifR, derechosR, tasaR, ivaR, ivaAdicR, gananciasR, iibbR,
-      despaR, termR, navR, logR, totalGastosR, costoRealConIva, costoRealSinIva,
-      // propia
+      fobC, fobDC, fobR, fobDR,
+      segC, cifC, derC, tasC, bivC, ivaC, ivaAC, ganC, iibbC, arcC,
+      desC, terC, navC, logC, gasC, totConC, totSinC,
+      fleteR, segR, cifR, derR, tasR, bivR, ivaR, ivaAR, ganR, iibbR,
+      desR, terR, navR, logR, gasR, totConR, totSinR,
+      honorarios, gastFac, precioConF, precioSinF,
+      mFOB, mFlet, mDer, mTas, mIva, mIvaA, mGan, mIIBB, mAranc, mGas, ganTotal,
       precioVenta,
-      // meta
-      m3Cont, ratio, fobR,
+      ratio, curM3,
     };
   }, [
-    fobCliente, fobDeclaradoCliente, fobReal, fobDeclarado, fleteCliente, fleteRealInput,
-    m3Merch, contenedor,
-    pctDerechos, pctTasa, pctIva, pagaIva, pctIvaAdic, pagaIvaAdic,
-    pctGanancias, pagaGanancias, pctIIBB, pagaIIBB,
-    gDespachante, gTerminal, gNaviera, gLogistica,
-    refFlete, refDespachante, refTerminal, refNaviera, refLogistica,
-    pctHonorarios, pctFacturacion, margenVenta,
+    fobCliente, fobDecCli, fleteCli, gDes, gTer, gNav, gLog,
+    fobReal, fobDecReal, fleteRealInput, m3Merch,
+    pDer, pTas, pIva, pagaIva, pIvaA, pagaIvaA, pGan, pagaGan, pIIBB, pagaIIBB,
+    pHon, pFac, pMrg, curM3, curCosts,
   ]);
 
+  // ─── tabs per mode ────────────────────────────────────────────────────────
   const tabs = mode === 'cliente'
-    ? [['datos', 'Datos'], ['aranceles', 'Aranceles'], ['gastos', 'Gastos'], ['cierre', 'Cierre']]
-    : [['datos', 'Datos'], ['aranceles', 'Aranceles'], ['gastos', 'Gastos'], ['venta', 'Venta']];
+    ? [['cliente_fob','Cotización cliente'],['real_fob','Mis costos reales'],['aranceles','Aranceles'],['cierre','Cierre']]
+    : [['real_fob','Mis costos'],['aranceles','Aranceles'],['venta','Precio de venta']];
 
+  // reset tab when switching mode
+  const switchMode = (m) => { setMode(m); setTab(m === 'cliente' ? 'cliente_fob' : 'real_fob'); };
+
+  // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ paddingBottom: '2rem' }}>
+    <div style={{ paddingBottom: '3rem' }}>
 
-      {/* ── HEADER ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* ══ CONTAINER CONFIG BAR ══════════════════════════════════════════════ */}
+      <Card style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+          {/* type selector */}
+          <div>
+            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>Tipo de contenedor</p>
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '50px', padding: '3px', gap: '2px' }}>
+              {Object.entries(PRESETS).map(([key, p]) => (
+                <button key={key} onClick={() => setContType(key)} style={{ padding: '0.35rem 0.9rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, transition: 'all 0.15s', background: contType === key ? '#2563eb' : 'transparent', color: contType === key ? '#fff' : '#64748b' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* m3 del contenedor */}
+          <div style={{ minWidth: '110px' }}>
+            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>M³ del contenedor</p>
+            <input type="number" step="any" min="1" value={contM3[contType]} onChange={e => setM3(contType, e.target.value)} style={{ ...INP, width: '100px', fontSize: '0.85rem' }} />
+          </div>
+
+          <div style={{ width: '1px', height: '44px', background: '#e2e8f0', flexShrink: 0 }} />
+
+          {/* reference costs */}
+          <div style={{ flex: 1 }}>
+            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>Costos de referencia del contenedor (USD) — modificables</p>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {[
+                ['Flete marítimo', 'flete'],
+                ['Despachante', 'despachante'],
+                ['Terminal', 'terminal'],
+                ['Naviera', 'naviera'],
+                ['Logística', 'logistica'],
+              ].map(([label, key]) => (
+                <div key={key} style={{ minWidth: '110px' }}>
+                  <label style={{ ...LBL, marginBottom: '0.25rem' }}>{label}</label>
+                  <input type="number" step="any" min="0" value={contCosts[contType][key]} onChange={e => setCost(contType, key, e.target.value)} style={{ ...INP, width: '110px', fontSize: '0.85rem' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* m3 merch (siempre visible) */}
+          <div style={{ minWidth: '120px' }}>
+            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>M³ de mi mercadería</p>
+            <input type="number" step="any" min="0" placeholder="0" value={m3Merch} onChange={e => setM3Merch(e.target.value)} style={{ ...INP, width: '110px', fontSize: '0.85rem' }} />
+            <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+              Ratio: {c.ratio.toFixed(3)} ({n(m3Merch)} / {c.curM3} m³)
+            </p>
+          </div>
+
+        </div>
+      </Card>
+
+      {/* ══ HEADER + MODE TOGGLE ═════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.15rem' }}>Cotizador de Importación</h2>
-          <p style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
-            {mode === 'propia' ? 'Calculá el costo real de tu propia importación' : 'Cotizá una operación y analizá tu rentabilidad'}
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.1rem' }}>Cotizador de Importación</h2>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+            {mode === 'cliente' ? 'Lo que cobrás al cliente · Lo que te sale a vos · Tu rentabilidad' : 'Solo tus costos reales de importación'}
           </p>
         </div>
-
-        {/* MODE TOGGLE */}
         <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: '50px', padding: '4px', gap: '2px' }}>
-          {[['propia', '📦 Importación Propia'], ['cliente', '🤝 Para Cliente']].map(([m, label]) => (
-            <button
-              key={m}
-              onClick={() => { setMode(m); setTab('datos'); }}
-              style={{
-                padding: '0.5rem 1.25rem',
-                borderRadius: '50px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                background: mode === m ? '#2563eb' : 'transparent',
-                color: mode === m ? '#fff' : '#64748b',
-                transition: 'all 0.2s',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+          <Pill active={mode === 'cliente'} onClick={() => switchMode('cliente')}>🤝 Para Cliente</Pill>
+          <Pill active={mode === 'personal'} onClick={() => switchMode('personal')}>📦 Importación Personal</Pill>
         </div>
       </div>
 
-      {/* ── MAIN LAYOUT: inputs left · results right (sticky) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '1.25rem', alignItems: 'start' }}>
+      {/* ══ MAIN: inputs left · results right ════════════════════════════════ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '370px 1fr', gap: '1.1rem', alignItems: 'start' }}>
 
-        {/* ════ LEFT: TABBED INPUTS ════ */}
+        {/* ── LEFT: tabbed inputs ─────────────────────────────────────────── */}
         <div>
-          {/* Tab bar */}
-          <div style={{ display: 'flex', background: '#fff', borderRadius: '12px', padding: '4px', marginBottom: '0.75rem', border: '1px solid #e2e8f0', gap: '2px' }}>
-            {tabs.map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                style={{
-                  flex: 1,
-                  padding: '0.45rem 0.5rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  background: tab === id ? '#f0f7ff' : 'transparent',
-                  color: tab === id ? '#2563eb' : '#94a3b8',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          {/* identification */}
+          <Card style={{ marginBottom: '0.75rem', padding: '0.9rem 1.1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+              <F label="Cliente"><TI value={cliente} onChange={setCliente} placeholder="Nombre" /></F>
+              <F label="Clasificación arancelaria"><TI value={clasificacion} onChange={setClasificacion} placeholder="8456.11.00" /></F>
+            </div>
+            <F label="Descripción del embarque"><TI value={descripcion} onChange={setDescripcion} placeholder="Ej: Máquina cortadora láser 1000W" /></F>
+          </Card>
+
+          {/* tab bar */}
+          <div style={{ display: 'flex', background: '#fff', borderRadius: '10px', padding: '3px', marginBottom: '0.6rem', border: '1px solid #e2e8f0', gap: '2px' }}>
+            {tabs.map(([id, label]) => <Tab key={id} active={tab === id} onClick={() => setTab(id)}>{label}</Tab>)}
           </div>
 
-          {/* Tab content */}
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+          {/* tab content */}
+          <Card>
 
-            {/* ── TAB: DATOS ── */}
-            {tab === 'datos' && (
+            {/* ── TAB: COTIZACIÓN CLIENTE ── */}
+            {tab === 'cliente_fob' && (
               <div>
-                <SectionLabel>Identificación</SectionLabel>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Field label="Cliente"><TextInput value={cliente} onChange={setCliente} placeholder="Nombre del cliente" /></Field>
-                  <Field label="Clasificación arancelaria"><TextInput value={clasificacion} onChange={setClasificacion} placeholder="8456.11.00" /></Field>
+                <p style={SECL}>FOB — Lado Cliente</p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                  <F label="FOB CLIENTE — lo que cobrás por la mercadería">
+                    <NI value={fobCliente} onChange={setFobCliente} />
+                  </F>
+                  <F label="FOB DECLARADO al cliente — base de sus aranceles">
+                    <NI value={fobDecCli} onChange={setFobDecCli} placeholder="= FOB cliente si no difiere" />
+                  </F>
                 </div>
-                <Field label="Descripción del embarque"><TextInput value={descripcion} onChange={setDescripcion} placeholder="Ej: Cortadora láser 1000W" /></Field>
 
-                <SectionLabel>FOB — Valor de la Mercadería</SectionLabel>
-                {mode === 'cliente' ? (
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                      <Field label="FOB cliente (lo que cobra por la mercadería)"><NumInput value={fobCliente} onChange={setFobCliente} /></Field>
-                      <Field label="FOB declarado al cliente (base aranceles cliente)">
-                        <NumInput value={fobDeclaradoCliente} onChange={setFobDeclaradoCliente} placeholder="= FOB cliente si no difiere" />
-                      </Field>
-                    </div>
-                    <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.75rem', color: '#92400e' }}>
-                      El FOB Declarado al Cliente es el valor que le informás que vas a declarar en aduana. Los aranceles de su cotización se calculan sobre este valor.
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                      <Field label="FOB real (costo al proveedor)"><NumInput value={fobReal} onChange={setFobReal} /></Field>
-                      <Field label="FOB que realmente declarás en aduana"><NumInput value={fobDeclarado} onChange={setFobDeclarado} placeholder="= real si no difiere" /></Field>
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                    <Field label="FOB real (proveedor)"><NumInput value={fobReal} onChange={setFobReal} /></Field>
-                    <Field label="FOB declarado aduana"><NumInput value={fobDeclarado} onChange={setFobDeclarado} placeholder="= real si no difiere" /></Field>
-                  </div>
-                )}
-
-                <SectionLabel>Flete y Seguro</SectionLabel>
-                {mode === 'cliente' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                    <Field label="Flete cobrado al cliente"><NumInput value={fleteCliente} onChange={setFleteCliente} /></Field>
-                    <Field label="Flete real prorrateado"><NumInput value={fleteRealInput} onChange={setFleteRealInput} placeholder={`Auto: ref × ${c.ratio.toFixed(2)}`} /></Field>
-                  </div>
-                ) : (
-                  <Field label="Flete real prorrateado"><NumInput value={fleteRealInput} onChange={setFleteRealInput} placeholder={`Auto: ref × ${c.ratio.toFixed(2)}`} /></Field>
-                )}
-                <p style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '-0.5rem', marginBottom: '0.9rem' }}>Seguro = 1% del FOB (calculado automáticamente)</p>
-
-                <SectionLabel>Contenedor</SectionLabel>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Field label="Tipo de contenedor">
-                    <select value={contenedor} onChange={e => setContenedor(e.target.value)} style={fi}>
-                      <option value="20">20 pies — 30 m³</option>
-                      <option value="40">40 pies — 60 m³</option>
-                    </select>
-                  </Field>
-                  <Field label="M³ de la mercadería"><NumInput value={m3Merch} onChange={setM3Merch} /></Field>
+                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#92400e', marginBottom: '0.75rem' }}>
+                  <strong>FOB Cliente</strong> = lo que le cobrás por la mercadería.&nbsp;
+                  <strong>FOB Declarado al cliente</strong> = el valor que le informás que vas a declarar en aduana, y sobre el que se calculan sus aranceles y el CIF de la cotización.
                 </div>
-                <p style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '-0.5rem' }}>Ratio de prorrateo: {c.ratio.toFixed(4)} ({parseFloat(m3Merch) || 0} m³ / {c.m3Cont} m³)</p>
+
+                <p style={SECL}>Flete</p>
+                <F label="Flete cobrado al cliente (USD)">
+                  <NI value={fleteCli} onChange={setFleteCli} />
+                </F>
+                <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '-0.5rem', marginBottom: '0.75rem' }}>
+                  Seguro = 1% del FOB Declarado al Cliente (calculado automáticamente) → {usd(c.segC)}
+                </p>
+                <div style={{ background: '#f0f7ff', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.78rem', color: '#2563eb', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>CIF base aranceles cliente</span>
+                  <strong>{usd(c.cifC)}</strong>
+                </div>
+
+                <p style={SECL}>Gastos Locales cobrados al cliente</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                  <F label="Despachante"><NI value={gDes} onChange={setGDes} /></F>
+                  <F label="Terminal"><NI value={gTer} onChange={setGTer} /></F>
+                  <F label="Naviera"><NI value={gNav} onChange={setGNav} /></F>
+                  <F label="Logística Interna"><NI value={gLog} onChange={setGLog} /></F>
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB: MIS COSTOS REALES ── */}
+            {tab === 'real_fob' && (
+              <div>
+                <p style={SECL}>FOB — Lado Real</p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                  <F label="FOB REAL — lo que te costó a vos">
+                    <NI value={fobReal} onChange={setFobReal} />
+                  </F>
+                  <F label="FOB que realmente declarás en aduana">
+                    <NI value={fobDecReal} onChange={setFobDecReal} placeholder="= FOB real si no difiere" />
+                  </F>
+                </div>
+
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#065f46', marginBottom: '0.75rem' }}>
+                  <strong>FOB Real</strong> = lo que realmente pagaste al proveedor.&nbsp;
+                  <strong>FOB Declarado</strong> = lo que efectivamente declarás en aduana. Ambos pueden ser distintos entre sí y distintos de los del lado cliente.
+                </div>
+
+                <p style={SECL}>Flete real</p>
+                <F label={`Flete real prorrateado (vacío = automático: ${usd(curCosts.flete)} × ${c.ratio.toFixed(3)} = ${usd(curCosts.flete * c.ratio)})`}>
+                  <NI value={fleteRealInput} onChange={setFleteRealInput} placeholder={`${(curCosts.flete * c.ratio).toFixed(2)}`} />
+                </F>
+                <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
+                  Seguro = 1% del FOB Declarado real → {usd(c.segR)}
+                </p>
+                <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.78rem', color: '#059669', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>CIF Declarado real (base aranceles reales)</span>
+                  <strong>{usd(c.cifR)}</strong>
+                </div>
+
+                <p style={SECL}>Gastos locales reales (prorrateados automáticamente)</p>
+                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem 1rem' }}>
+                  <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.5rem' }}>
+                    Ratio {c.ratio.toFixed(4)} · Costos del contenedor ÷ m³ totales × tus m³
+                  </p>
+                  {[['Despachante', c.desR, curCosts.despachante], ['Terminal', c.terR, curCosts.terminal], ['Naviera', c.navR, curCosts.naviera], ['Logística', c.logR, curCosts.logistica]].map(([l, v, ref]) => (
+                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '0.2rem 0', color: '#475569' }}>
+                      <span>{l} ({usd(ref)} × {c.ratio.toFixed(3)})</span>
+                      <strong>{usd(v)}</strong>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', borderTop: '1px solid #e2e8f0', paddingTop: '0.4rem', marginTop: '0.4rem' }}>
+                    <span>Total gastos reales</span><span>{usd(c.gasR)}</span>
+                  </div>
+                </div>
               </div>
             )}
 
             {/* ── TAB: ARANCELES ── */}
             {tab === 'aranceles' && (
               <div>
-                <SectionLabel>Base arancelaria</SectionLabel>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Field label="Derechos de Importación %"><NumInput value={pctDerechos} onChange={v => setPctDerechos(parseFloat(v) || 0)} min={0} /></Field>
-                  <Field label="Tasa Estadística %"><NumInput value={pctTasa} onChange={v => setPctTasa(parseFloat(v) || 0)} min={0} /></Field>
+                <p style={SECL}>Base arancelaria</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                  <F label="Derechos de Importación %">
+                    <input type="number" step="any" min="0" value={pDer} onChange={e => setPDer(parseFloat(e.target.value) || 0)} style={INP} />
+                  </F>
+                  <F label="Tasa Estadística %">
+                    <input type="number" step="any" min="0" value={pTas} onChange={e => setPTas(parseFloat(e.target.value) || 0)} style={INP} />
+                  </F>
                 </div>
 
-                <SectionLabel>Impuestos — indicá cuáles pagás realmente</SectionLabel>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                  El toggle "SÍ/NO" indica si la empresa paga ese impuesto en aduana (afecta el cálculo de costo real y rentabilidad).
+                <p style={SECL}>Impuestos — ¿cuáles pagás realmente vos?</p>
+                <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.7rem' }}>
+                  El toggle indica si la empresa abona ese impuesto en aduana. Afecta exclusivamente el cálculo de costos reales y rentabilidad.
                 </p>
-
                 <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem 1rem' }}>
                   {[
-                    ['IVA %', pctIva, setPctIva, pagaIva, setPagaIva],
-                    ['IVA Adicional %', pctIvaAdic, setPctIvaAdic, pagaIvaAdic, setPagaIvaAdic],
-                    ['Percepción Ganancias %', pctGanancias, setPctGanancias, pagaGanancias, setPagaGanancias],
-                    ['Percepción IIBB %', pctIIBB, setPctIIBB, pagaIIBB, setPagaIIBB],
-                  ].map(([label, val, setVal, paga, setPaga]) => (
-                    <div key={label} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <div>
-                        <label style={fl}>{label}</label>
-                        <input type="number" step="any" min={0} value={val} onChange={e => setVal(parseFloat(e.target.value) || 0)} style={fi} />
+                    ['IVA %', pIva, setPIva, pagaIva, setPagaIva],
+                    ['IVA Adicional %', pIvaA, setPIvaA, pagaIvaA, setPagaIvaA],
+                    ['Percepción Ganancias %', pGan, setPGan, pagaGan, setPagaGan],
+                    ['Percepción IIBB %', pIIBB, setPIIBB, pagaIIBB, setPagaIIBB],
+                  ].map(([lbl, val, setVal, paga, setPaga]) => (
+                    <div key={lbl} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end', marginBottom: '0.65rem' }}>
+                      <F label={lbl}>
+                        <input type="number" step="any" min="0" value={val} onChange={e => setVal(parseFloat(e.target.value) || 0)} style={INP} />
+                      </F>
+                      <div style={{ paddingBottom: '0.75rem' }}>
+                        <PagaToggle label="¿Lo pagás?" checked={paga} onChange={setPaga} />
                       </div>
-                      <div style={{ paddingTop: '1.1rem' }}>
-                        <Toggle label="¿Lo pagás?" checked={paga} onChange={setPaga} />
-                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* quick base IVA preview */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.75rem' }}>
+                  {[['Base IVA cliente', c.bivC], ['Base IVA real', c.bivR]].map(([l, v]) => (
+                    <div key={l} style={{ background: '#f0f7ff', borderRadius: '8px', padding: '0.5rem 0.75rem' }}>
+                      <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginBottom: '0.15rem' }}>{l}</p>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#2563eb' }}>{usd(v)}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* ── TAB: GASTOS ── */}
-            {tab === 'gastos' && (
-              <div>
-                {mode === 'cliente' && (
-                  <>
-                    <SectionLabel>Gastos cobrados al cliente</SectionLabel>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                      <Field label="Despachante"><NumInput value={gDespachante} onChange={setGDespachante} /></Field>
-                      <Field label="Terminal"><NumInput value={gTerminal} onChange={setGTerminal} /></Field>
-                      <Field label="Naviera"><NumInput value={gNaviera} onChange={setGNaviera} /></Field>
-                      <Field label="Logística Interna"><NumInput value={gLogistica} onChange={setGLogistica} /></Field>
-                    </div>
-                  </>
-                )}
-
-                <SectionLabel>Costos de referencia (costo real prorrateado)</SectionLabel>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                  Costo total del contenedor. Se divide por el ratio m³ para calcular tu costo real en esta operación.
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Field label="Flete Marítimo (ref)"><NumInput value={refFlete} onChange={v => setRefFlete(parseFloat(v) || 0)} /></Field>
-                  <Field label="Despachante (ref)"><NumInput value={refDespachante} onChange={v => setRefDespachante(parseFloat(v) || 0)} /></Field>
-                  <Field label="Terminal (ref)"><NumInput value={refTerminal} onChange={v => setRefTerminal(parseFloat(v) || 0)} /></Field>
-                  <Field label="Naviera (ref)"><NumInput value={refNaviera} onChange={v => setRefNaviera(parseFloat(v) || 0)} /></Field>
-                  <Field label="Logística Interna (ref)"><NumInput value={refLogistica} onChange={v => setRefLogistica(parseFloat(v) || 0)} /></Field>
-                </div>
-
-                <div style={{ background: '#f0f7ff', borderRadius: '10px', padding: '0.75rem 1rem', marginTop: '0.5rem' }}>
-                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2563eb', marginBottom: '0.4rem' }}>Costos reales prorrateados (ratio {c.ratio.toFixed(3)})</p>
-                  {[['Flete', c.fleteR], ['Despachante', c.despaR], ['Terminal', c.termR], ['Naviera', c.navR], ['Logística', c.logR]].map(([l, v]) => (
-                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#475569', marginBottom: '0.2rem' }}>
-                      <span>{l}</span><span style={{ fontWeight: 600 }}>{usd(v)}</span>
-                    </div>
-                  ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: '#2563eb', borderTop: '1px solid #bfdbfe', paddingTop: '0.4rem', marginTop: '0.4rem' }}>
-                    <span>Total real</span><span>{usd(c.fleteR + c.despaR + c.termR + c.navR + c.logR)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── TAB: CIERRE (modo cliente) ── */}
+            {/* ── TAB: CIERRE (cliente) ── */}
             {tab === 'cierre' && mode === 'cliente' && (
               <div>
-                <SectionLabel>Honorarios del servicio</SectionLabel>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                  Se aplican sobre el Costo Total CON IVA.
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Field label="Honorarios %">
-                    <input type="number" step="any" min={0} value={pctHonorarios} onChange={e => setPctHonorarios(parseFloat(e.target.value) || 0)} style={fi} />
-                  </Field>
-                  <Field label="Gastos de Facturación % (CON factura)">
-                    <input type="number" step="any" min={0} value={pctFacturacion} onChange={e => setPctFacturacion(parseFloat(e.target.value) || 0)} style={fi} />
-                  </Field>
+                <p style={SECL}>Honorarios del servicio</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                  <F label="Honorarios % (sobre Costo Total CON IVA)">
+                    <input type="number" step="any" min="0" value={pHon} onChange={e => setPHon(parseFloat(e.target.value) || 0)} style={INP} />
+                  </F>
+                  <F label="Gastos de Facturación % (solo CON factura)">
+                    <input type="number" step="any" min="0" value={pFac} onChange={e => setPFac(parseFloat(e.target.value) || 0)} style={INP} />
+                  </F>
                 </div>
-
                 <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '1rem', marginTop: '0.5rem' }}>
-                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Vista previa de cierre</p>
                   {[
-                    ['Costo Total CON IVA', c.costoConIva],
-                    [`+ Honorarios (${pctHonorarios}%)`, c.honorarios],
-                    [`+ Gastos Facturación (${pctFacturacion}%)`, c.gastFac],
-                    ['= Precio Final CON factura', c.precioConFac],
-                    ['= Precio Final SIN factura', c.precioSinFac],
-                  ].map(([label, val], i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.35rem 0', borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none', fontWeight: i >= 3 ? 700 : 400, color: i >= 3 ? '#2563eb' : '#475569' }}>
-                      <span>{label}</span><span>{usd(val)}</span>
+                    ['Costo Total CON IVA', c.totConC],
+                    [`+ Honorarios (${pHon}%)`, c.honorarios],
+                    [`+ Gs. Facturación (${pFac}%)`, c.gastFac, true],
+                    ['= Precio final CON factura', c.precioConF, false, true],
+                    ['= Precio final SIN factura', c.precioSinF, false, true],
+                  ].map(([lbl, val, onlyCon, bold], i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.35rem 0', borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none', fontWeight: bold ? 700 : 400, color: bold ? '#2563eb' : onlyCon ? '#94a3b8' : '#475569' }}>
+                      <span>{lbl}</span><span>{usd(val)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* ── TAB: VENTA (modo propia) ── */}
-            {tab === 'venta' && mode === 'propia' && (
+            {/* ── TAB: PRECIO DE VENTA (personal) ── */}
+            {tab === 'venta' && mode === 'personal' && (
               <div>
-                <SectionLabel>Precio de venta estimado</SectionLabel>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                  Aplicá un margen sobre tu costo real de importación para estimar el precio de venta.
-                </p>
-                <Field label="Margen de ganancia deseado %">
-                  <input type="number" step="any" min={0} value={margenVenta} onChange={e => setMargenVenta(parseFloat(e.target.value) || 0)} style={fi} />
-                </Field>
-
+                <p style={SECL}>Precio de venta estimado</p>
+                <F label="Margen de ganancia deseado %">
+                  <input type="number" step="any" min="0" value={pMrg} onChange={e => setPMrg(parseFloat(e.target.value) || 0)} style={INP} />
+                </F>
                 <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '1rem', marginTop: '0.5rem' }}>
-                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estimación</p>
                   {[
-                    ['Costo real CON IVA', c.costoRealConIva],
-                    [`Margen (${margenVenta}%)`, c.costoRealConIva * (margenVenta / 100)],
-                    ['Precio de venta estimado', c.precioVenta],
-                  ].map(([label, val], i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.35rem 0', borderBottom: i < 2 ? '1px solid #bbf7d0' : 'none', fontWeight: i === 2 ? 700 : 400, color: i === 2 ? '#059669' : '#374151' }}>
-                      <span>{label}</span><span>{usd(val)}</span>
+                    ['Costo real CON IVA', c.totConR],
+                    [`+ Margen (${pMrg}%)`, c.totConR * (pMrg / 100)],
+                    ['= Precio de venta estimado', c.precioVenta],
+                  ].map(([lbl, val], i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.35rem 0', borderBottom: i < 2 ? '1px solid #d1fae5' : 'none', fontWeight: i === 2 ? 700 : 400, color: i === 2 ? '#059669' : '#374151' }}>
+                      <span>{lbl}</span><span>{usd(val)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-          </div>
+          </Card>
         </div>
 
-        {/* ════ RIGHT: STICKY RESULTS ════ */}
-        <div style={{ position: 'sticky', top: '1rem', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto', paddingRight: '2px' }}>
+        {/* ── RIGHT: sticky results ───────────────────────────────────────── */}
+        <div style={{ position: 'sticky', top: '1rem', maxHeight: 'calc(100vh - 110px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-          {/* ── RESULTS: MODO PROPIA ── */}
-          {mode === 'propia' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* ══ MODO CLIENTE ══════════════════════════════════════════════════ */}
+          {mode === 'cliente' && (<>
 
-              {/* Big number */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>Costo Total de Importación</p>
-                <p style={{ fontSize: '2.25rem', fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>{usd(c.costoRealConIva)}</p>
-                <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.35rem' }}>SIN IVA: {usd(c.costoRealSinIva)}</p>
-                {c.precioVenta > 0 && (
-                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
-                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Precio de venta estimado ({margenVenta}% margen)</p>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981' }}>{usd(c.precioVenta)}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Desglose */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Desglose del costo real</p>
-
-                <ResultRow label="FOB Real" value={c.fobR} />
-                <ResultRow label="Flete Prorrateado" value={c.fleteR} />
-                <ResultRow label="Seguro (1%)" value={c.seguroR} />
-
-                <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0.75rem 0 0.4rem' }}>Aranceles pagados</p>
-                <ResultRow label={`Derechos (${pctDerechos}%)`} value={c.derechosR} />
-                <ResultRow label={`Tasa Estadística (${pctTasa}%)`} value={c.tasaR} />
-                <ResultRow label={`IVA (${pctIva}%)`} value={c.ivaR} dimmed={!pagaIva} />
-                <ResultRow label={`IVA Adicional (${pctIvaAdic}%)`} value={c.ivaAdicR} dimmed={!pagaIvaAdic} />
-                <ResultRow label={`Perc. Ganancias (${pctGanancias}%)`} value={c.gananciasR} dimmed={!pagaGanancias} />
-                <ResultRow label={`Perc. IIBB (${pctIIBB}%)`} value={c.iibbR} dimmed={!pagaIIBB} />
-
-                <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0.75rem 0 0.4rem' }}>Gastos locales</p>
-                <ResultRow label="Despachante" value={c.despaR} />
-                <ResultRow label="Terminal" value={c.termR} />
-                <ResultRow label="Naviera" value={c.navR} />
-                <ResultRow label="Logística Interna" value={c.logR} />
-
-                <div style={{ borderTop: '2px solid #1e293b', marginTop: '0.75rem', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Total CON IVA</span>
-                  <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e293b' }}>{usd(c.costoRealConIva)}</span>
+            {/* precios finales */}
+            <Card>
+              <p style={{ ...SECL, margin: '0 0 0.7rem' }}>Precio final al cliente</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '1rem' }}>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>✅ CON Factura</p>
+                  <p style={{ fontSize: '1.45rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>{usd(c.precioConF)}</p>
+                  <p style={{ fontSize: '0.7rem', color: '#6ee7b7', marginTop: '0.2rem' }}>Hon. {usd(c.honorarios)} + Gs.Fac. {usd(c.gastFac)}</p>
+                </div>
+                <div style={{ background: '#fefce8', borderRadius: '12px', padding: '1rem' }}>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>🚫 SIN Factura</p>
+                  <p style={{ fontSize: '1.45rem', fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{usd(c.precioSinF)}</p>
+                  <p style={{ fontSize: '0.7rem', color: '#fcd34d', marginTop: '0.2rem' }}>Ahorro del cliente: {usd(c.gastFac)}</p>
                 </div>
               </div>
-
-            </div>
-          )}
-
-          {/* ── RESULTS: MODO CLIENTE ── */}
-          {mode === 'cliente' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-              {/* Precios de cierre */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Precio final al cliente</p>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <div style={{ flex: 1, background: '#f0fdf4', borderRadius: '12px', padding: '1rem' }}>
-                    <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>✅ CON Factura</p>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>{usd(c.precioConFac)}</p>
-                    <p style={{ fontSize: '0.72rem', color: '#6ee7b7', marginTop: '0.25rem' }}>Hon. + Gs.Fac. incluidos</p>
-                  </div>
-                  <div style={{ flex: 1, background: '#fefce8', borderRadius: '12px', padding: '1rem' }}>
-                    <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>🚫 SIN Factura</p>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{usd(c.precioSinFac)}</p>
-                    <p style={{ fontSize: '0.72rem', color: '#fcd34d', marginTop: '0.25rem' }}>Ahorro: {usd(c.gastFac)}</p>
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.6rem' }}>
+                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
+                  <p style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Costo total CON IVA</p>
+                  <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b' }}>{usd(c.totConC)}</p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
-                  <div style={{ flex: 1, background: '#f8fafc', borderRadius: '10px', padding: '0.75rem' }}>
-                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.2rem' }}>Costo total CON IVA</p>
-                    <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>{usd(c.costoConIva)}</p>
-                  </div>
-                  <div style={{ flex: 1, background: '#f8fafc', borderRadius: '10px', padding: '0.75rem' }}>
-                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.2rem' }}>Costo total SIN IVA</p>
-                    <p style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b' }}>{usd(c.costoSinIva)}</p>
-                  </div>
-                </div>
-                <div style={{ marginTop: '0.6rem', background: '#fff7ed', borderRadius: '8px', padding: '0.5rem 0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#92400e' }}>FOB declarado al cliente · CIF base aranceles</span>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#d97706' }}>{usd(c.fobDC)} · {usd(c.cifC)}</span>
+                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
+                  <p style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Costo total SIN IVA</p>
+                  <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#64748b' }}>{usd(c.totSinC)}</p>
                 </div>
               </div>
+              <div style={{ background: '#fff7ed', borderRadius: '8px', padding: '0.45rem 0.75rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#92400e' }}>FOB dec. cliente · CIF aranceles cliente</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d97706' }}>{usd(c.fobDC)} · {usd(c.cifC)}</span>
+              </div>
+            </Card>
 
-              {/* Rentabilidad */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Rentabilidad</p>
-                {[
-                  ['Margen FOB', c.margenFOB],
-                  ['Margen Flete', c.margenFlete],
-                  ['Margen Aranceles', c.margenAranceles],
-                  ['Margen Gastos Locales', c.margenGastos],
-                  ['Honorarios', c.honorarios],
-                ].map(([label, val]) => {
-                  const pctFob = c.fobR > 0 ? ((val / c.fobR) * 100).toFixed(1) + '%' : '';
-                  const barW = c.gananciaTotal > 0 ? Math.max(0, Math.min(100, (val / c.gananciaTotal) * 100)) : 0;
-                  return (
-                    <div key={label} style={{ marginBottom: '0.6rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                        <span style={{ fontSize: '0.82rem', color: '#475569' }}>{label}</span>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: val >= 0 ? '#10b981' : '#ef4444' }}>
-                          {usd(val)} {pctFob && <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 400 }}>({pctFob})</span>}
-                        </span>
-                      </div>
-                      <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '99px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${barW}%`, background: val >= 0 ? '#10b981' : '#ef4444', borderRadius: '99px', transition: 'width 0.3s' }} />
-                      </div>
+            {/* rentabilidad */}
+            <Card>
+              <p style={{ ...SECL, margin: '0 0 0.7rem' }}>Rentabilidad</p>
+              {[
+                ['Margen FOB', c.mFOB],
+                ['Margen Flete', c.mFlet],
+                ['Margen Aranceles', c.mAranc],
+                ['Margen Gastos Locales', c.mGas],
+                ['Honorarios', c.honorarios],
+              ].map(([lbl, val]) => {
+                const pctFob = c.fobR > 0 ? ((val / c.fobR) * 100).toFixed(1) + '%' : '';
+                const barW = c.ganTotal > 0 ? Math.max(0, Math.min(100, (val / c.ganTotal) * 100)) : 0;
+                return (
+                  <div key={lbl} style={{ marginBottom: '0.55rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.18rem' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#475569' }}>{lbl}</span>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: val >= 0 ? '#10b981' : '#ef4444' }}>
+                        {usd(val)} {pctFob && <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 400 }}>({pctFob})</span>}
+                      </span>
                     </div>
-                  );
-                })}
-                <div style={{ borderTop: '2px solid #1e293b', marginTop: '0.75rem', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700 }}>Ganancia Total</span>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '1.35rem', fontWeight: 800, color: c.gananciaTotal >= 0 ? '#10b981' : '#ef4444' }}>{usd(c.gananciaTotal)}</div>
-                    {c.fobR > 0 && <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{((c.gananciaTotal / c.fobR) * 100).toFixed(1)}% s/ FOB real</div>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Desglose comparativo compacto */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Real vs Cobrado</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '0.5rem' }}>
-                  {['Concepto', 'Real', 'Cobrado'].map(h => (
-                    <span key={h} style={{ fontSize: '0.68rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
-                  ))}
-                </div>
-                {[
-                  ['FOB Mercadería', c.fobR, parseFloat(fobCliente) || 0],
-                  ['FOB Declarado (cliente)', null, c.fobDC],
-                  ['Flete', c.fleteR, parseFloat(fleteCliente) || 0],
-                  ['Derechos', c.derechosR, c.derechosC],
-                  ['IVA', c.ivaR, c.ivaC],
-                  ['IVA Adic.', c.ivaAdicR, c.ivaAdicC],
-                  ['Ganancias', c.gananciasR, c.gananciasC],
-                  ['IIBB', c.iibbR, c.iibbC],
-                  ['Gastos Loc.', c.totalGastosR, c.totalGastosC],
-                ].map(([label, real, cobrado]) => {
-                  const diff = real !== null ? cobrado - real : null;
-                  return (
-                    <div key={label} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', padding: '0.3rem 0', borderBottom: '1px solid #f8fafc' }}>
-                      <span style={{ fontSize: '0.8rem', color: '#475569' }}>{label}</span>
-                      <span style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'right' }}>{real !== null ? usd(real) : '—'}</span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, textAlign: 'right', color: diff === null ? '#2563eb' : diff >= 0 ? '#10b981' : '#ef4444' }}>{usd(cobrado)}</span>
+                    <div style={{ height: '3px', background: '#f1f5f9', borderRadius: '99px' }}>
+                      <div style={{ height: '100%', width: `${barW}%`, background: val >= 0 ? '#10b981' : '#ef4444', borderRadius: '99px', transition: 'width 0.3s' }} />
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
+              <div style={{ borderTop: '2px solid #1e293b', marginTop: '0.75rem', paddingTop: '0.7rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700 }}>Ganancia total</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 800, color: c.ganTotal >= 0 ? '#10b981' : '#ef4444' }}>{usd(c.ganTotal)}</div>
+                  {c.fobR > 0 && <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{((c.ganTotal / c.fobR) * 100).toFixed(1)}% s/ FOB real</div>}
+                </div>
               </div>
+            </Card>
 
-            </div>
-          )}
+            {/* tabla comparativa completa */}
+            <Card>
+              <p style={{ ...SECL, margin: '0 0 0.5rem' }}>Detalle: Real vs Cobrado al cliente</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', fontSize: '0.68rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                <span>Concepto</span><span style={{ textAlign: 'right' }}>Costo real</span><span style={{ textAlign: 'right' }}>Cobro</span><span style={{ textAlign: 'right' }}>Margen</span>
+              </div>
+              {[
+                ['FOB Mercadería', c.fobR, c.fobC, c.mFOB],
+                ['FOB Declarado', c.fobDR, c.fobDC, null],
+                ['Flete', c.fleteR, n(fleteCli), c.mFlet],
+                ['Seguro', c.segR, c.segC, c.segC - c.segR],
+                ['Derechos', c.derR, c.derC, c.mDer],
+                ['Tasa Estadística', c.tasR, c.tasC, c.mTas],
+                ['IVA', c.ivaR, c.ivaC, c.mIva],
+                ['IVA Adicional', c.ivaAR, c.ivaAC, c.mIvaA],
+                ['Perc. Ganancias', c.ganR, c.ganC, c.mGan],
+                ['Perc. IIBB', c.iibbR, c.iibbC, c.mIIBB],
+                ['Despachante', c.desR, c.desC, c.desC - c.desR],
+                ['Terminal', c.terR, c.terC, c.terC - c.terR],
+                ['Naviera', c.navR, c.navC, c.navC - c.navR],
+                ['Logística', c.logR, c.logC, c.logC - c.logR],
+              ].map(([lbl, real, cobro, diff]) => (
+                <div key={lbl} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '0.3rem 0', borderBottom: '1px solid #f8fafc', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#475569' }}>{lbl}</span>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'right' }}>{usd(real)}</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#1e293b', textAlign: 'right' }}>{usd(cobro)}</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textAlign: 'right', color: diff === null ? '#cbd5e1' : diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#94a3b8' }}>
+                    {diff === null ? '—' : (diff > 0 ? '+' : '') + (usd(diff))}
+                  </span>
+                </div>
+              ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '0.5rem 0', background: '#f0f7ff', borderRadius: '8px', marginTop: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }}>
+                <span style={{ color: '#1e293b', paddingLeft: '0.25rem' }}>TOTAL</span>
+                <span style={{ textAlign: 'right', color: '#64748b' }}>{usd(c.totConR)}</span>
+                <span style={{ textAlign: 'right', color: '#2563eb' }}>{usd(c.totConC)}</span>
+                <span style={{ textAlign: 'right', color: c.ganTotal >= 0 ? '#10b981' : '#ef4444' }}>{c.ganTotal >= 0 ? '+' : ''}{usd(c.ganTotal)}</span>
+              </div>
+            </Card>
+
+          </>)}
+
+          {/* ══ MODO PERSONAL ═════════════════════════════════════════════════ */}
+          {mode === 'personal' && (<>
+
+            <Card>
+              <p style={{ ...SECL, margin: '0 0 0.7rem' }}>Costo total de importación</p>
+              <p style={{ fontSize: '2rem', fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>{usd(c.totConR)}</p>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.3rem' }}>SIN IVA: {usd(c.totSinR)}</p>
+              {c.precioVenta > 0 && (
+                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.3rem' }}>
+                    Precio de venta estimado ({pMrg}% margen)
+                  </p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981' }}>{usd(c.precioVenta)}</p>
+                </div>
+              )}
+              <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '0.45rem 0.75rem', marginTop: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.72rem', color: '#065f46' }}>FOB declarado · CIF declarado</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#059669' }}>{usd(c.fobDR)} · {usd(c.cifR)}</span>
+              </div>
+            </Card>
+
+            <Card>
+              <p style={{ ...SECL, margin: '0 0 0.5rem' }}>Desglose de costos reales</p>
+              <RRow label="FOB Real" val={c.fobR} />
+              <RRow label="Flete prorrateado" val={c.fleteR} />
+              <RRow label="Seguro (1%)" val={c.segR} />
+              <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', margin: '0.6rem 0 0.3rem' }}>Aranceles pagados</p>
+              <RRow label={`Derechos (${pDer}%)`} val={c.derR} />
+              <RRow label={`Tasa Estadística (${pTas}%)`} val={c.tasR} />
+              <RRow label={`IVA (${pIva}%)`} val={c.ivaR} dimmed={!pagaIva} />
+              <RRow label={`IVA Adicional (${pIvaA}%)`} val={c.ivaAR} dimmed={!pagaIvaA} />
+              <RRow label={`Perc. Ganancias (${pGan}%)`} val={c.ganR} dimmed={!pagaGan} />
+              <RRow label={`Perc. IIBB (${pIIBB}%)`} val={c.iibbR} dimmed={!pagaIIBB} />
+              <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', margin: '0.6rem 0 0.3rem' }}>Gastos locales</p>
+              <RRow label="Despachante" val={c.desR} />
+              <RRow label="Terminal" val={c.terR} />
+              <RRow label="Naviera" val={c.navR} />
+              <RRow label="Logística Interna" val={c.logR} />
+              <div style={{ borderTop: '2px solid #1e293b', marginTop: '0.6rem', paddingTop: '0.6rem', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 700 }}>Total CON IVA</span>
+                <span style={{ fontWeight: 800, fontSize: '1rem', color: '#1e293b' }}>{usd(c.totConR)}</span>
+              </div>
+            </Card>
+
+          </>)}
 
         </div>
       </div>
