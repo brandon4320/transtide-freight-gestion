@@ -359,98 +359,18 @@ export default function Cotizador() {
   return (
     <div style={{ paddingBottom: '3rem' }}>
 
-      {/* ══ CONTAINER CONFIG BAR ══════════════════════════════════════════════ */}
-      <Card style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-
-          {/* type selector */}
-          <div>
-            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>Tipo de contenedor</p>
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '50px', padding: '3px', gap: '2px' }}>
-              {Object.entries(PRESETS).map(([key, p]) => (
-                <button key={key} onClick={() => setContType(key)} style={{ padding: '0.35rem 0.9rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, transition: 'all 0.15s', background: contType === key ? '#2563eb' : 'transparent', color: contType === key ? '#fff' : '#64748b' }}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* m3 del contenedor */}
-          <div style={{ minWidth: '110px' }}>
-            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>M³ del contenedor</p>
-            <input type="number" step="any" min="1" value={contM3[contType]} onChange={e => setM3(contType, e.target.value)} style={{ ...INP, width: '100px', fontSize: '0.85rem' }} />
-          </div>
-
-          <div style={{ width: '1px', height: '44px', background: '#e2e8f0', flexShrink: 0 }} />
-
-          {/* reference costs */}
-          <div style={{ flex: 1 }}>
-            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>Costos de referencia del contenedor (USD) — modificables</p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              {[
-                ['Flete marítimo', 'flete'],
-                ['Despachante', 'despachante'],
-                ['Terminal', 'terminal'],
-                ['Naviera', 'naviera'],
-                ['Logística', 'logistica'],
-              ].map(([label, key]) => (
-                <div key={key} style={{ minWidth: '110px' }}>
-                  <label style={{ ...LBL, marginBottom: '0.25rem' }}>{label}</label>
-                  <input type="number" step="any" min="0" value={contCosts[contType][key]} onChange={e => setCost(contType, key, e.target.value)} style={{ ...INP, width: '110px', fontSize: '0.85rem' }} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* m3 merch (siempre visible) */}
-          <div style={{ minWidth: '120px' }}>
-            <p style={{ ...SECL, margin: '0 0 0.4rem' }}>M³ de mi mercadería</p>
-            <input type="number" step="any" min="0" placeholder="0" value={m3Merch} onChange={e => setM3Merch(e.target.value)} style={{ ...INP, width: '110px', fontSize: '0.85rem' }} />
-            <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-              Ratio: {c.ratio.toFixed(3)} ({n(m3Merch)} / {c.curM3} m³)
-            </p>
-          </div>
-
-        </div>
-
-        {/* ── Prorrateado + cobro al cliente ── */}
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
-          <p style={{ ...SECL, margin: '0 0 0.6rem' }}>Costo prorrateado · Lo que cobrás al cliente</p>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {[
-              ['Flete',       c.fleteR, fleteCli, setFleteCli],
-              ['Despachante', c.desR,   gDes,     setGDes],
-              ['Terminal',    c.terR,   gTer,     setGTer],
-              ['Naviera',     c.navR,   gNav,     setGNav],
-              ['Logística',   c.logR,   gLog,     setGLog],
-            ].map(([label, prorated, val, setVal]) => (
-              <div key={label} style={{ minWidth: '110px' }}>
-                <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', marginBottom: '0.25rem' }}>{label}</p>
-                <div style={{ background: '#f1f5f9', borderRadius: '6px', padding: '0.3rem 0.6rem', fontSize: '0.73rem', color: '#64748b', marginBottom: '0.3rem', display: 'flex', justifyContent: 'space-between', gap: '0.4rem' }}>
-                  <span style={{ color: '#94a3b8' }}>Prorrateado</span>
-                  <strong>{usd(prorated)}</strong>
-                </div>
-                <label style={{ ...LBL, marginBottom: '0.2rem' }}>Cobro cliente</label>
-                <input type="number" step="any" min="0" placeholder="0" value={val} onChange={e => setVal(e.target.value)} style={{ ...INP, width: '110px', fontSize: '0.85rem' }} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </Card>
-
-      {/* ══ HEADER + MODE TOGGLE ═════════════════════════════════════════════ */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+      {/* ══ HEADER ════════════════════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.1rem' }}>Cotizador de Importación</h2>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-            {mode === 'cliente' ? 'Lo que cobrás al cliente · Lo que te sale a vos · Tu rentabilidad' : 'Solo tus costos reales de importación'}
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.2rem' }}>Cotizador de Importación</h2>
+          <p style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+            {mode === 'cliente' ? 'Calculá el costo real, lo que cobrás y tu rentabilidad' : 'Calculá el costo real de tu importación personal'}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {mode === 'cliente' && (
-            <button onClick={() => setShowClienteView(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, background: '#2563eb', color: '#fff', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', transition: 'all 0.15s' }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <button onClick={() => setShowClienteView(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1.1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, background: '#2563eb', color: '#fff', boxShadow: '0 2px 10px rgba(37,99,235,0.3)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               Ver cotización al cliente
             </button>
           )}
@@ -461,53 +381,152 @@ export default function Cotizador() {
         </div>
       </div>
 
-      {/* ══ MAIN: inputs left · results right ════════════════════════════════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '370px 1fr', gap: '1.1rem', alignItems: 'start' }}>
+      {/* ══ SETUP CARD ════════════════════════════════════════════════════════ */}
+      <Card style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '2rem' }}>
 
-        {/* ── LEFT: tabbed inputs ─────────────────────────────────────────── */}
-        <div>
-          {/* identification */}
-          <Card style={{ marginBottom: '0.75rem', padding: '0.9rem 1.1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-              <F label="Cliente"><TI value={cliente} onChange={setCliente} placeholder="Nombre" /></F>
-              <F label="Clasificación arancelaria"><TI value={clasificacion} onChange={setClasificacion} placeholder="8456.11.00" /></F>
+          {/* LEFT: contenedor */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+              </div>
+              <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>Contenedor</p>
             </div>
-            <F label="Descripción del embarque"><TI value={descripcion} onChange={setDescripcion} placeholder="Ej: Máquina cortadora láser 1000W" /></F>
+
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px', gap: '2px', marginBottom: '0.85rem' }}>
+              {Object.entries(PRESETS).map(([key, p]) => (
+                <button key={key} onClick={() => setContType(key)} style={{ flex: 1, padding: '0.42rem 0.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.73rem', fontWeight: 700, transition: 'all 0.15s', background: contType === key ? '#2563eb' : 'transparent', color: contType === key ? '#fff' : '#64748b' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={LBL}>M³ del contenedor</label>
+              <input type="number" step="any" min="1" value={contM3[contType]} onChange={e => setM3(contType, e.target.value)} style={{ ...INP, width: '110px' }} />
+            </div>
+
+            <div>
+              <label style={{ ...LBL, marginBottom: '0.5rem' }}>Costos de referencia (USD)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                {[['Flete marítimo','flete'],['Despachante','despachante'],['Terminal','terminal'],['Naviera','naviera'],['Logística','logistica']].map(([label, key]) => (
+                  <div key={key}>
+                    <label style={{ ...LBL, fontSize: '0.62rem' }}>{label}</label>
+                    <input type="number" step="any" min="0" value={contCosts[contType][key]} onChange={e => setCost(contType, key, e.target.value)} style={INP} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: M³ mercadería + charges table */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              </div>
+              <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>Mi carga & prorrateo de costos</p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={LBL}>M³ de mi mercadería</label>
+                <input type="number" step="any" min="0" placeholder="0" value={m3Merch} onChange={e => setM3Merch(e.target.value)} style={{ ...INP, width: '130px' }} />
+              </div>
+              <div style={{ background: c.ratio > 0 ? '#eff6ff' : '#f8fafc', border: `1px solid ${c.ratio > 0 ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: '10px', padding: '0.45rem 0.9rem', marginBottom: '0.12rem' }}>
+                <p style={{ fontSize: '0.62rem', color: '#94a3b8', marginBottom: '1px' }}>Ratio de prorrateo</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: 800, color: c.ratio > 0 ? '#2563eb' : '#94a3b8', lineHeight: 1 }}>{c.ratio.toFixed(3)}</p>
+                <p style={{ fontSize: '0.62rem', color: '#94a3b8', marginTop: '1px' }}>{n(m3Merch)} / {c.curM3} m³</p>
+              </div>
+            </div>
+
+            {/* charges table */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', background: '#f8fafc', padding: '0.45rem 0.85rem', borderBottom: '1px solid #e2e8f0', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Concepto</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'right' }}>Tu costo prorrateado</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'right' }}>Lo que cobrás al cliente</span>
+              </div>
+              {[
+                ['Flete', c.fleteR, fleteCli, setFleteCli],
+                ['Despachante', c.desR, gDes, setGDes],
+                ['Terminal', c.terR, gTer, setGTer],
+                ['Naviera', c.navR, gNav, setGNav],
+                ['Logística', c.logR, gLog, setGLog],
+              ].map(([label, prorated, val, setVal], i, arr) => (
+                <div key={label} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', alignItems: 'center', padding: '0.48rem 0.85rem', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.83rem', fontWeight: 600, color: '#475569' }}>{label}</span>
+                  <span style={{ fontSize: '0.83rem', color: c.ratio > 0 ? '#1e293b' : '#cbd5e1', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{usd(prorated)}</span>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <input type="number" step="any" min="0" placeholder="0" value={val} onChange={e => setVal(e.target.value)} style={{ ...INP, width: '130px', textAlign: 'right' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </Card>
+
+      {/* ══ MAIN GRID ═════════════════════════════════════════════════════════ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '460px 1fr', gap: '1.25rem', alignItems: 'start' }}>
+
+        {/* ── LEFT: identification + tabs ──────────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+          {/* identification */}
+          <Card style={{ padding: '1rem 1.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.85rem' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Identificación del embarque</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
+              <F label="Cliente"><TI value={cliente} onChange={setCliente} placeholder="Nombre del cliente" /></F>
+              <F label="Posición arancelaria"><TI value={clasificacion} onChange={setClasificacion} placeholder="8456.11.00" /></F>
+            </div>
+            <F label="Descripción de la mercadería"><TI value={descripcion} onChange={setDescripcion} placeholder="Ej: Máquinas cortadoras láser 1000W" /></F>
           </Card>
 
           {/* tab bar */}
-          <div style={{ display: 'flex', background: '#fff', borderRadius: '10px', padding: '3px', marginBottom: '0.6rem', border: '1px solid #e2e8f0', gap: '2px' }}>
-            {tabs.map(([id, label]) => <Tab key={id} active={tab === id} onClick={() => setTab(id)}>{label}</Tab>)}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tabs.length}, 1fr)`, background: '#fff', borderRadius: '12px', padding: '4px', border: '1px solid #e2e8f0', gap: '3px' }}>
+            {tabs.map(([id, label]) => (
+              <button key={id} onClick={() => setTab(id)} style={{ padding: '0.6rem 0.25rem', borderRadius: '9px', border: 'none', cursor: 'pointer', fontSize: '0.73rem', fontWeight: 700, transition: 'all 0.15s', background: tab === id ? '#2563eb' : 'transparent', color: tab === id ? '#fff' : '#94a3b8', lineHeight: 1.2 }}>
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* tab content */}
-          <Card>
+          <Card style={{ padding: '1.25rem' }}>
 
             {/* ── TAB: COTIZACIÓN CLIENTE ── */}
             {tab === 'cliente_fob' && (
               <div>
-                <p style={SECL}>FOB — Lado Cliente</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '1rem' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FOB — Lado cliente</p>
+                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
-                  <F label="FOB CLIENTE — lo que cobrás por la mercadería">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '0.75rem' }}>
+                    <label style={{ ...LBL, color: '#b45309' }}>FOB Cliente</label>
+                    <p style={{ fontSize: '0.68rem', color: '#d97706', marginBottom: '0.5rem' }}>Lo que cobrás por la mercadería</p>
                     <NI value={fobCliente} onChange={setFobCliente} />
-                  </F>
-                  <F label="FOB DECLARADO al cliente — base de sus aranceles">
+                  </div>
+                  <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '0.75rem' }}>
+                    <label style={{ ...LBL, color: '#b45309' }}>FOB Declarado al cliente</label>
+                    <p style={{ fontSize: '0.68rem', color: '#d97706', marginBottom: '0.5rem' }}>Base para sus aranceles y CIF</p>
                     <NI value={fobDecCli} onChange={setFobDecCli} placeholder="= FOB cliente si no difiere" />
-                  </F>
+                  </div>
                 </div>
 
-                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#92400e', marginBottom: '0.75rem' }}>
-                  <strong>FOB Cliente</strong> = lo que le cobrás por la mercadería.&nbsp;
-                  <strong>FOB Declarado al cliente</strong> = el valor que le informás que vas a declarar en aduana, y sobre el que se calculan sus aranceles y el CIF de la cotización.
-                </div>
-
-                <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.75rem' }}>
-                  Seguro = 1% del FOB Declarado al Cliente (automático) → {usd(c.segC)}
-                </p>
-                <div style={{ background: '#f0f7ff', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.78rem', color: '#2563eb', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>CIF base aranceles cliente</span>
-                  <strong>{usd(c.cifC)}</strong>
+                <div style={{ background: '#f0f7ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontSize: '0.72rem', color: '#3b82f6', fontWeight: 600 }}>CIF base aranceles cliente</p>
+                    <p style={{ fontSize: '0.65rem', color: '#93c5fd' }}>FOB dec. {usd(c.fobDC)} + Flete {usd(n(fleteCli))} + Seguro {usd(c.segC)}</p>
+                  </div>
+                  <p style={{ fontSize: '1.2rem', fontWeight: 800, color: '#2563eb' }}>{usd(c.cifC)}</p>
                 </div>
               </div>
             )}
@@ -515,46 +534,47 @@ export default function Cotizador() {
             {/* ── TAB: MIS COSTOS REALES ── */}
             {tab === 'real_fob' && (
               <div>
-                <p style={SECL}>FOB — Lado Real</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '1rem' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FOB — Lado real</p>
+                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
-                  <F label="FOB REAL — lo que te costó a vos">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.75rem' }}>
+                    <label style={{ ...LBL, color: '#065f46' }}>FOB Real</label>
+                    <p style={{ fontSize: '0.68rem', color: '#10b981', marginBottom: '0.5rem' }}>Lo que pagaste al proveedor</p>
                     <NI value={fobReal} onChange={setFobReal} />
-                  </F>
-                  <F label="FOB que realmente declarás en aduana">
+                  </div>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: '10px', padding: '0.75rem' }}>
+                    <label style={{ ...LBL, color: '#065f46' }}>FOB Declarado real</label>
+                    <p style={{ fontSize: '0.68rem', color: '#10b981', marginBottom: '0.5rem' }}>Lo que declarás en aduana</p>
                     <NI value={fobDecReal} onChange={setFobDecReal} placeholder="= FOB real si no difiere" />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <F label={`Flete real (vacío = prorrateado automático: ${usd(curCosts.flete * c.ratio)})`}>
+                    <NI value={fleteRealInput} onChange={setFleteRealInput} placeholder={`${(curCosts.flete * c.ratio).toFixed(2)}`} />
                   </F>
                 </div>
 
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#065f46', marginBottom: '0.75rem' }}>
-                  <strong>FOB Real</strong> = lo que realmente pagaste al proveedor.&nbsp;
-                  <strong>FOB Declarado</strong> = lo que efectivamente declarás en aduana. Ambos pueden ser distintos entre sí y distintos de los del lado cliente.
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div>
+                    <p style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>CIF declarado real</p>
+                    <p style={{ fontSize: '0.65rem', color: '#6ee7b7' }}>FOB dec. {usd(c.fobDR)} + Flete {usd(c.fleteR)} + Seguro {usd(c.segR)}</p>
+                  </div>
+                  <p style={{ fontSize: '1.2rem', fontWeight: 800, color: '#059669' }}>{usd(c.cifR)}</p>
                 </div>
 
-                <p style={SECL}>Flete real</p>
-                <F label={`Flete real prorrateado (vacío = automático: ${usd(curCosts.flete)} × ${c.ratio.toFixed(3)} = ${usd(curCosts.flete * c.ratio)})`}>
-                  <NI value={fleteRealInput} onChange={setFleteRealInput} placeholder={`${(curCosts.flete * c.ratio).toFixed(2)}`} />
-                </F>
-                <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
-                  Seguro = 1% del FOB Declarado real → {usd(c.segR)}
-                </p>
-                <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.78rem', color: '#059669', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>CIF Declarado real (base aranceles reales)</span>
-                  <strong>{usd(c.cifR)}</strong>
-                </div>
-
-                <p style={SECL}>Gastos locales reales (prorrateados automáticamente)</p>
-                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-                  <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.5rem' }}>
-                    Ratio {c.ratio.toFixed(4)} · Costos del contenedor ÷ m³ totales × tus m³
-                  </p>
+                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem', border: '1px solid #f1f5f9' }}>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Gastos locales reales prorrateados</p>
                   {[['Despachante', c.desR, curCosts.despachante], ['Terminal', c.terR, curCosts.terminal], ['Naviera', c.navR, curCosts.naviera], ['Logística', c.logR, curCosts.logistica]].map(([l, v, ref]) => (
-                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '0.2rem 0', color: '#475569' }}>
-                      <span>{l} ({usd(ref)} × {c.ratio.toFixed(3)})</span>
-                      <strong>{usd(v)}</strong>
+                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '0.22rem 0', color: '#475569', borderBottom: '1px solid #f1f5f9' }}>
+                      <span style={{ color: '#94a3b8' }}>{l} <span style={{ fontSize: '0.72rem' }}>({usd(ref)} × {c.ratio.toFixed(3)})</span></span>
+                      <strong style={{ color: '#1e293b' }}>{usd(v)}</strong>
                     </div>
                   ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', borderTop: '1px solid #e2e8f0', paddingTop: '0.4rem', marginTop: '0.4rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.85rem', color: '#1e293b', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
                     <span>Total gastos reales</span><span>{usd(c.gasR)}</span>
                   </div>
                 </div>
@@ -564,8 +584,12 @@ export default function Cotizador() {
             {/* ── TAB: ARANCELES ── */}
             {tab === 'aranceles' && (
               <div>
-                <p style={SECL}>Base arancelaria</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '1rem' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Configuración arancelaria</p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
                   <F label="Derechos de Importación %">
                     <input type="number" step="any" min="0" value={pDer} onChange={e => setPDer(parseFloat(e.target.value) || 0)} style={INP} />
                   </F>
@@ -574,18 +598,16 @@ export default function Cotizador() {
                   </F>
                 </div>
 
-                <p style={SECL}>Impuestos — ¿cuáles pagás realmente vos?</p>
-                <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.7rem' }}>
-                  El toggle indica si la empresa abona ese impuesto en aduana. Afecta exclusivamente el cálculo de costos reales y rentabilidad.
-                </p>
-                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem 1rem' }}>
+                <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.65rem' }}>¿Cuáles de estos impuestos pagás realmente vos? Afecta solo el cálculo de tus costos reales.</p>
+
+                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem 1rem', border: '1px solid #f1f5f9' }}>
                   {[
                     ['IVA %', pIva, setPIva, pagaIva, setPagaIva],
                     ['IVA Adicional %', pIvaA, setPIvaA, pagaIvaA, setPagaIvaA],
-                    ['Percepción Ganancias %', pGan, setPGan, pagaGan, setPagaGan],
-                    ['Percepción IIBB %', pIIBB, setPIIBB, pagaIIBB, setPagaIIBB],
+                    ['Perc. Ganancias %', pGan, setPGan, pagaGan, setPagaGan],
+                    ['Perc. IIBB %', pIIBB, setPIIBB, pagaIIBB, setPagaIIBB],
                   ].map(([lbl, val, setVal, paga, setPaga]) => (
-                    <div key={lbl} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end', marginBottom: '0.65rem' }}>
+                    <div key={lbl} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end', marginBottom: '0.6rem' }}>
                       <F label={lbl}>
                         <input type="number" step="any" min="0" value={val} onChange={e => setVal(parseFloat(e.target.value) || 0)} style={INP} />
                       </F>
@@ -596,39 +618,43 @@ export default function Cotizador() {
                   ))}
                 </div>
 
-                {/* quick base IVA preview */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.75rem' }}>
-                  {[['Base IVA cliente', c.bivC], ['Base IVA real', c.bivR]].map(([l, v]) => (
-                    <div key={l} style={{ background: '#f0f7ff', borderRadius: '8px', padding: '0.5rem 0.75rem' }}>
+                  {[['Base IVA cliente', c.bivC, '#eff6ff', '#2563eb'], ['Base IVA real', c.bivR, '#f0fdf4', '#059669']].map(([l, v, bg, color]) => (
+                    <div key={l} style={{ background: bg, borderRadius: '8px', padding: '0.6rem 0.8rem' }}>
                       <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginBottom: '0.15rem' }}>{l}</p>
-                      <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#2563eb' }}>{usd(v)}</p>
+                      <p style={{ fontSize: '0.95rem', fontWeight: 700, color }}>{usd(v)}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* ── TAB: CIERRE (cliente) ── */}
+            {/* ── TAB: CIERRE ── */}
             {tab === 'cierre' && mode === 'cliente' && (
               <div>
-                <p style={SECL}>Honorarios del servicio</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
-                  <F label="Honorarios % (sobre Costo Total CON IVA)">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '1rem' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#5b21b6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Honorarios & cierre</p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
+                  <F label={`Honorarios % (s/ costo CON IVA)`}>
                     <input type="number" step="any" min="0" value={pHon} onChange={e => setPHon(parseFloat(e.target.value) || 0)} style={INP} />
                   </F>
-                  <F label="Gastos de Facturación % (solo CON factura)">
+                  <F label="Gastos de Facturación % (CON factura)">
                     <input type="number" step="any" min="0" value={pFac} onChange={e => setPFac(parseFloat(e.target.value) || 0)} style={INP} />
                   </F>
                 </div>
-                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '1rem', marginTop: '0.5rem' }}>
+
+                <div style={{ background: '#faf5ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e9d5ff' }}>
                   {[
-                    ['Costo Total CON IVA', c.totConC],
-                    [`+ Honorarios (${pHon}%)`, c.honorarios],
+                    ['Costo Total CON IVA', c.totConC, false],
+                    [`+ Honorarios (${pHon}%)`, c.honorarios, false],
                     [`+ Gs. Facturación (${pFac}%)`, c.gastFac, true],
                     ['= Precio final CON factura', c.precioConF, false, true],
                     ['= Precio final SIN factura', c.precioSinF, false, true],
                   ].map(([lbl, val, onlyCon, bold], i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.35rem 0', borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none', fontWeight: bold ? 700 : 400, color: bold ? '#2563eb' : onlyCon ? '#94a3b8' : '#475569' }}>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: bold ? '0.9rem' : '0.83rem', padding: '0.38rem 0', borderBottom: i < 4 ? '1px solid #f3e8ff' : 'none', fontWeight: bold ? 700 : 400, color: bold ? '#7c3aed' : onlyCon ? '#c4b5fd' : '#475569' }}>
                       <span>{lbl}</span><span>{usd(val)}</span>
                     </div>
                   ))}
@@ -660,23 +686,22 @@ export default function Cotizador() {
           </Card>
         </div>
 
-        {/* ── RIGHT: sticky results ───────────────────────────────────────── */}
+        {/* ── RIGHT: sticky results ────────────────────────────────────────── */}
         <div style={{ position: 'sticky', top: '1rem', maxHeight: 'calc(100vh - 110px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-          {/* ══ MODO CLIENTE ══════════════════════════════════════════════════ */}
+          {/* ══ MODO CLIENTE ════════════════════════════════════════════════ */}
           {mode === 'cliente' && (<>
 
-            {/* precios finales */}
             <Card>
               <p style={{ ...SECL, margin: '0 0 0.7rem' }}>Precio final al cliente</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '1rem' }}>
-                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>✅ CON Factura</p>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>CON Factura</p>
                   <p style={{ fontSize: '1.45rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>{usd(c.precioConF)}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#6ee7b7', marginTop: '0.2rem' }}>Hon. {usd(c.honorarios)} + Gs.Fac. {usd(c.gastFac)}</p>
+                  <p style={{ fontSize: '0.7rem', color: '#6ee7b7', marginTop: '0.2rem' }}>Hon. {usd(c.honorarios)} + Fac. {usd(c.gastFac)}</p>
                 </div>
                 <div style={{ background: '#fefce8', borderRadius: '12px', padding: '1rem' }}>
-                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>🚫 SIN Factura</p>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>SIN Factura</p>
                   <p style={{ fontSize: '1.45rem', fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{usd(c.precioSinF)}</p>
                   <p style={{ fontSize: '0.7rem', color: '#fcd34d', marginTop: '0.2rem' }}>Ahorro del cliente: {usd(c.gastFac)}</p>
                 </div>
@@ -692,12 +717,11 @@ export default function Cotizador() {
                 </div>
               </div>
               <div style={{ background: '#fff7ed', borderRadius: '8px', padding: '0.45rem 0.75rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.72rem', color: '#92400e' }}>FOB dec. cliente · CIF aranceles cliente</span>
+                <span style={{ fontSize: '0.72rem', color: '#92400e' }}>FOB dec. cliente · CIF aranceles</span>
                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d97706' }}>{usd(c.fobDC)} · {usd(c.cifC)}</span>
               </div>
             </Card>
 
-            {/* rentabilidad */}
             <Card>
               <p style={{ ...SECL, margin: '0 0 0.7rem' }}>Rentabilidad</p>
               {[
@@ -732,7 +756,6 @@ export default function Cotizador() {
               </div>
             </Card>
 
-            {/* tabla comparativa completa */}
             <Card>
               <p style={{ ...SECL, margin: '0 0 0.5rem' }}>Detalle: Real vs Cobrado al cliente</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', fontSize: '0.68rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
@@ -763,8 +786,8 @@ export default function Cotizador() {
                   </span>
                 </div>
               ))}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '0.5rem 0', background: '#f0f7ff', borderRadius: '8px', marginTop: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }}>
-                <span style={{ color: '#1e293b', paddingLeft: '0.25rem' }}>TOTAL</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '0.5rem 0.25rem', background: '#f0f7ff', borderRadius: '8px', marginTop: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }}>
+                <span style={{ color: '#1e293b' }}>TOTAL</span>
                 <span style={{ textAlign: 'right', color: '#64748b' }}>{usd(c.totConR)}</span>
                 <span style={{ textAlign: 'right', color: '#2563eb' }}>{usd(c.totConC)}</span>
                 <span style={{ textAlign: 'right', color: c.ganTotal >= 0 ? '#10b981' : '#ef4444' }}>{c.ganTotal >= 0 ? '+' : ''}{usd(c.ganTotal)}</span>
@@ -773,7 +796,7 @@ export default function Cotizador() {
 
           </>)}
 
-          {/* ══ MODO PERSONAL ═════════════════════════════════════════════════ */}
+          {/* ══ MODO PERSONAL ═══════════════════════════════════════════════ */}
           {mode === 'personal' && (<>
 
             <Card>
@@ -821,6 +844,7 @@ export default function Cotizador() {
 
         </div>
       </div>
+
 
       {/* ══ MODAL: VISTA COTIZACIÓN CLIENTE ═════════════════════════════════ */}
       {showClienteView && (
