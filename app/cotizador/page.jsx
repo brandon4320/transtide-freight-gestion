@@ -292,6 +292,31 @@ export default function Cotizador() {
           </div>
 
         </div>
+
+        {/* ── Prorrateado + cobro al cliente ── */}
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
+          <p style={{ ...SECL, margin: '0 0 0.6rem' }}>Costo prorrateado · Lo que cobrás al cliente</p>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {[
+              ['Flete',       c.fleteR, fleteCli, setFleteCli],
+              ['Despachante', c.desR,   gDes,     setGDes],
+              ['Terminal',    c.terR,   gTer,     setGTer],
+              ['Naviera',     c.navR,   gNav,     setGNav],
+              ['Logística',   c.logR,   gLog,     setGLog],
+            ].map(([label, prorated, val, setVal]) => (
+              <div key={label} style={{ minWidth: '110px' }}>
+                <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', marginBottom: '0.25rem' }}>{label}</p>
+                <div style={{ background: '#f1f5f9', borderRadius: '6px', padding: '0.3rem 0.6rem', fontSize: '0.73rem', color: '#64748b', marginBottom: '0.3rem', display: 'flex', justifyContent: 'space-between', gap: '0.4rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Prorrateado</span>
+                  <strong>{usd(prorated)}</strong>
+                </div>
+                <label style={{ ...LBL, marginBottom: '0.2rem' }}>Cobro cliente</label>
+                <input type="number" step="any" min="0" placeholder="0" value={val} onChange={e => setVal(e.target.value)} style={{ ...INP, width: '110px', fontSize: '0.85rem' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+
       </Card>
 
       {/* ══ HEADER + MODE TOGGLE ═════════════════════════════════════════════ */}
@@ -349,40 +374,13 @@ export default function Cotizador() {
                   <strong>FOB Declarado al cliente</strong> = el valor que le informás que vas a declarar en aduana, y sobre el que se calculan sus aranceles y el CIF de la cotización.
                 </div>
 
-                <p style={SECL}>Flete</p>
-                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.45rem 0.8rem', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '0.73rem', color: '#94a3b8' }}>Tu costo prorrateado</span>
-                  <strong style={{ fontSize: '0.85rem', color: '#475569' }}>{usd(c.fleteR)}</strong>
-                </div>
-                <F label="Lo que cobrás al cliente (USD)">
-                  <NI value={fleteCli} onChange={setFleteCli} />
-                </F>
-                <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '-0.5rem', marginBottom: '0.75rem' }}>
+                <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.75rem' }}>
                   Seguro = 1% del FOB Declarado al Cliente (automático) → {usd(c.segC)}
                 </p>
                 <div style={{ background: '#f0f7ff', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.78rem', color: '#2563eb', display: 'flex', justifyContent: 'space-between' }}>
                   <span>CIF base aranceles cliente</span>
                   <strong>{usd(c.cifC)}</strong>
                 </div>
-
-                <p style={SECL}>Gastos Locales</p>
-                {[
-                  ['Despachante', c.desR, gDes, setGDes],
-                  ['Terminal',    c.terR, gTer, setGTer],
-                  ['Naviera',     c.navR, gNav, setGNav],
-                  ['Logística',   c.logR, gLog, setGLog],
-                ].map(([label, prorated, val, setVal]) => (
-                  <div key={label} style={{ marginBottom: '0.6rem', background: '#f8fafc', borderRadius: '10px', padding: '0.6rem 0.85rem', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>{label}</span>
-                      <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                        Tu costo prorrateado:&nbsp;<strong style={{ color: '#64748b' }}>{usd(prorated)}</strong>
-                      </span>
-                    </div>
-                    <label style={LBL}>Lo que cobrás al cliente</label>
-                    <NI value={val} onChange={setVal} />
-                  </div>
-                ))}
               </div>
             )}
 
