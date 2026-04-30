@@ -138,6 +138,9 @@ export default function Cotizador() {
   const [pFac, setPFac] = useState(8);
   const [pMrg, setPMrg] = useState(20); // solo modo personal
 
+  // ── UI ──
+  const [showClienteView, setShowClienteView] = useState(false);
+
   // ─── calculations ─────────────────────────────────────────────────────────
   const c = useMemo(() => {
     const der = pDer / 100, tas = pTas / 100, iva = pIva / 100,
@@ -235,6 +238,123 @@ export default function Cotizador() {
   // reset tab when switching mode
   const switchMode = (m) => { setMode(m); setTab(m === 'cliente' ? 'cliente_fob' : 'real_fob'); };
 
+  // ─── print client quote ───────────────────────────────────────────────────
+  const printClienteQuote = () => {
+    const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const fmt = (v) => '$ ' + (Math.round(v * 100) / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const pct = (v) => v.toFixed(1) + '%';
+    const row = (label, val, opts = {}) => {
+      const color = opts.bold ? '#1e293b' : opts.sub ? '#475569' : '#374151';
+      const bg = opts.highlight ? '#eff6ff' : opts.total ? '#1e3a5f' : 'transparent';
+      const txtColor = opts.total ? '#ffffff' : color;
+      return `<tr style="background:${bg};">
+        <td style="padding:7px 12px;font-size:${opts.bold||opts.total?'0.9':'0.84'}rem;font-weight:${opts.bold||opts.total?700:400};color:${opts.sub?'#64748b':txtColor};border-bottom:1px solid #f1f5f9;">${label}</td>
+        <td style="padding:7px 12px;text-align:right;font-size:${opts.bold||opts.total?'0.9':'0.84'}rem;font-weight:${opts.bold||opts.total?700:opts.semibold?600:400};color:${opts.total?'#ffffff':opts.bold?'#1e293b':'#374151'};border-bottom:1px solid #f1f5f9;">${val}</td>
+      </tr>`;
+    };
+    const divider = (label) => `<tr><td colspan="2" style="padding:10px 12px 4px;font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid #e2e8f0;">${label}</td></tr>`;
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+    <title>Cotización - ${cliente || 'Cliente'}</title>
+    <style>
+      @page { margin: 18mm 15mm; size: A4; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; }
+      .page { max-width: 720px; margin: 0 auto; padding: 0; }
+      table { width: 100%; border-collapse: collapse; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style></head><body>
+    <div class="page">
+      <!-- HEADER -->
+      <table style="margin-bottom:24px;">
+        <tr>
+          <td>
+            <div style="font-size:1.4rem;font-weight:800;color:#2563eb;letter-spacing:-0.02em;">TRANSTIDE FREIGHT</div>
+            <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">Gestión Logística & Importaciones</div>
+          </td>
+          <td style="text-align:right;vertical-align:top;">
+            <div style="font-size:0.72rem;color:#94a3b8;">Fecha de cotización</div>
+            <div style="font-size:0.88rem;font-weight:600;color:#475569;">${today}</div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- TITLE BAND -->
+      <div style="background:#2563eb;border-radius:10px;padding:14px 20px;margin-bottom:20px;">
+        <div style="font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:0.01em;">COTIZACIÓN DE IMPORTACIÓN</div>
+        ${cliente ? `<div style="font-size:0.82rem;color:#bfdbfe;margin-top:4px;">Cliente: <strong style="color:#fff;">${cliente}</strong></div>` : ''}
+      </div>
+
+      <!-- CLIENT INFO -->
+      ${(descripcion || clasificacion) ? `
+      <table style="margin-bottom:20px;background:#f8fafc;border-radius:8px;overflow:hidden;">
+        ${descripcion ? `<tr><td style="padding:8px 14px;font-size:0.75rem;color:#64748b;font-weight:600;width:200px;">Descripción</td><td style="padding:8px 14px;font-size:0.82rem;color:#1e293b;">${descripcion}</td></tr>` : ''}
+        ${clasificacion ? `<tr style="border-top:1px solid #e2e8f0;"><td style="padding:8px 14px;font-size:0.75rem;color:#64748b;font-weight:600;">Posición Arancelaria</td><td style="padding:8px 14px;font-size:0.82rem;color:#1e293b;">${clasificacion}</td></tr>` : ''}
+      </table>` : ''}
+
+      <!-- DESGLOSE -->
+      <table style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;">
+        ${divider('Base de la Importación')}
+        ${row('Valor de Mercadería (FOB Declarado)', fmt(c.fobDC))}
+        ${row('Flete Internacional', fmt(n(fleteCli)))}
+        ${row('Seguro Marítimo (1% FOB)', fmt(c.segC))}
+        ${row('CIF — Base Arancelaria', fmt(c.cifC), { bold: true, highlight: true })}
+
+        ${divider('Aranceles Aduaneros')}
+        ${row(`Derechos de Importación (${pct(pDer)})`, fmt(c.derC))}
+        ${pTas > 0 ? row(`Tasa Estadística (${pct(pTas)})`, fmt(c.tasC)) : ''}
+        ${row('Base IVA', fmt(c.bivC), { sub: true })}
+        ${row(`IVA (${pct(pIva)})`, fmt(c.ivaC))}
+        ${c.ivaAC > 0 ? row(`IVA Adicional (${pct(pIvaA)})`, fmt(c.ivaAC)) : ''}
+        ${c.ganC > 0 ? row(`Percepción Ganancias (${pct(pGan)})`, fmt(c.ganC)) : ''}
+        ${c.iibbC > 0 ? row(`Percepción IIBB (${pct(pIIBB)})`, fmt(c.iibbC)) : ''}
+
+        ${(c.desC > 0 || c.terC > 0 || c.navC > 0 || c.logC > 0) ? divider('Gastos Locales') : ''}
+        ${c.desC > 0 ? row('Despachante de Aduana', fmt(c.desC)) : ''}
+        ${c.terC > 0 ? row('Terminal Portuaria', fmt(c.terC)) : ''}
+        ${c.navC > 0 ? row('Naviera', fmt(c.navC)) : ''}
+        ${c.logC > 0 ? row('Logística Interna', fmt(c.logC)) : ''}
+
+        ${divider('Totales')}
+        ${row('Costo Total CON IVA', fmt(c.totConC), { bold: true })}
+        ${row('Costo Total SIN IVA', fmt(c.totSinC), { sub: true })}
+        ${row(`Honorarios del Servicio (${pct(pHon)})`, fmt(c.honorarios))}
+        ${c.gastFac > 0 ? row(`Gastos de Facturación (${pct(pFac)})`, fmt(c.gastFac), { sub: true }) : ''}
+      </table>
+
+      <!-- FINAL PRICES -->
+      <table style="margin-bottom:24px;border-radius:10px;overflow:hidden;">
+        <tr>
+          <td style="padding:18px 20px;background:#065f46;border-radius:10px 0 0 10px;width:50%;">
+            <div style="font-size:0.65rem;font-weight:700;color:#6ee7b7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Precio Final CON Factura</div>
+            <div style="font-size:1.6rem;font-weight:800;color:#ffffff;line-height:1;">${fmt(c.precioConF)}</div>
+            <div style="font-size:0.7rem;color:#6ee7b7;margin-top:4px;">Hon. ${fmt(c.honorarios)} + Gs.Fac. ${fmt(c.gastFac)}</div>
+          </td>
+          <td style="width:8px;"></td>
+          <td style="padding:18px 20px;background:#78350f;border-radius:0 10px 10px 0;width:50%;">
+            <div style="font-size:0.65rem;font-weight:700;color:#fcd34d;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Precio Final SIN Factura</div>
+            <div style="font-size:1.6rem;font-weight:800;color:#ffffff;line-height:1;">${fmt(c.precioSinF)}</div>
+            <div style="font-size:0.7rem;color:#fcd34d;margin-top:4px;">Ahorro para el cliente: ${fmt(c.gastFac)}</div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- FOOTER -->
+      <div style="border-top:1px solid #e2e8f0;padding-top:12px;">
+        <p style="font-size:0.7rem;color:#94a3b8;line-height:1.5;">
+          * Cotización expresada en dólares estadounidenses (USD). Los valores son estimados y están sujetos a variación según el tipo de cambio oficial vigente al momento del despacho, actualizaciones arancelarias y condiciones del proveedor. La presente cotización tiene validez de 7 días hábiles desde su emisión.
+        </p>
+      </div>
+    </div>
+    </body></html>`;
+
+    const w = window.open('', '_blank', 'width=820,height=950,scrollbars=yes');
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 600);
+  };
+
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div style={{ paddingBottom: '3rem' }}>
@@ -327,9 +447,17 @@ export default function Cotizador() {
             {mode === 'cliente' ? 'Lo que cobrás al cliente · Lo que te sale a vos · Tu rentabilidad' : 'Solo tus costos reales de importación'}
           </p>
         </div>
-        <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: '50px', padding: '4px', gap: '2px' }}>
-          <Pill active={mode === 'cliente'} onClick={() => switchMode('cliente')}>🤝 Para Cliente</Pill>
-          <Pill active={mode === 'personal'} onClick={() => switchMode('personal')}>📦 Importación Personal</Pill>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {mode === 'cliente' && (
+            <button onClick={() => setShowClienteView(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, background: '#2563eb', color: '#fff', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', transition: 'all 0.15s' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Ver cotización al cliente
+            </button>
+          )}
+          <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: '50px', padding: '4px', gap: '2px' }}>
+            <Pill active={mode === 'cliente'} onClick={() => switchMode('cliente')}>Para Cliente</Pill>
+            <Pill active={mode === 'personal'} onClick={() => switchMode('personal')}>Importación Personal</Pill>
+          </div>
         </div>
       </div>
 
@@ -693,6 +821,153 @@ export default function Cotizador() {
 
         </div>
       </div>
+
+      {/* ══ MODAL: VISTA COTIZACIÓN CLIENTE ═════════════════════════════════ */}
+      {showClienteView && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowClienteView(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.25)' }}>
+
+            {/* modal header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 1.5rem', borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 0, background: '#fff', borderRadius: '20px 20px 0 0', zIndex: 10 }}>
+              <div>
+                <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.1rem' }}>Vista previa</p>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>Cotización al Cliente</h3>
+              </div>
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <button onClick={printClienteQuote} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, background: '#2563eb', color: '#fff', boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  Imprimir / PDF
+                </button>
+                <button onClick={() => setShowClienteView(false)} style={{ width: '36px', height: '36px', borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#f1f5f9', color: '#64748b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              </div>
+            </div>
+
+            {/* modal body — quote preview */}
+            <div style={{ padding: '1.5rem' }}>
+
+              {/* brand + date */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
+                <div>
+                  <p style={{ fontSize: '1.3rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.02em' }}>TRANSTIDE FREIGHT</p>
+                  <p style={{ fontSize: '0.73rem', color: '#94a3b8' }}>Gestión Logística & Importaciones</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Fecha de cotización</p>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                </div>
+              </div>
+
+              {/* title band */}
+              <div style={{ background: '#2563eb', borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '1.2rem' }}>
+                <p style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff', letterSpacing: '0.01em' }}>COTIZACIÓN DE IMPORTACIÓN</p>
+                {cliente && <p style={{ fontSize: '0.8rem', color: '#bfdbfe', marginTop: '3px' }}>Cliente: <strong style={{ color: '#fff' }}>{cliente}</strong></p>}
+              </div>
+
+              {/* client info */}
+              {(descripcion || clasificacion) && (
+                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.2rem', display: 'grid', gap: '0.4rem' }}>
+                  {descripcion && <div style={{ display: 'flex', gap: '1rem' }}><span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', minWidth: '130px' }}>Descripción</span><span style={{ fontSize: '0.82rem', color: '#1e293b' }}>{descripcion}</span></div>}
+                  {clasificacion && <div style={{ display: 'flex', gap: '1rem', borderTop: descripcion ? '1px solid #e2e8f0' : 'none', paddingTop: descripcion ? '0.4rem' : 0 }}><span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', minWidth: '130px' }}>Pos. Arancelaria</span><span style={{ fontSize: '0.82rem', color: '#1e293b' }}>{clasificacion}</span></div>}
+                </div>
+              )}
+
+              {/* desglose table */}
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', marginBottom: '1rem' }}>
+
+                {/* base importación */}
+                <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Base de la Importación</span>
+                </div>
+                {[
+                  ['Valor de Mercadería (FOB Declarado)', usd(c.fobDC)],
+                  ['Flete Internacional', usd(n(fleteCli))],
+                  ['Seguro Marítimo (1% FOB)', usd(c.segC)],
+                ].map(([l, v]) => (
+                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #f8fafc', fontSize: '0.83rem', color: '#374151' }}>
+                    <span>{l}</span><span>{v}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid #e2e8f0', fontSize: '0.88rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff' }}>
+                  <span>CIF — Base Arancelaria</span><span>{usd(c.cifC)}</span>
+                </div>
+
+                {/* aranceles */}
+                <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '2px solid #e2e8f0', borderTop: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Aranceles Aduaneros</span>
+                </div>
+                {[
+                  [`Derechos de Importación (${pDer}%)`, usd(c.derC)],
+                  ...(pTas > 0 ? [[`Tasa Estadística (${pTas}%)`, usd(c.tasC)]] : []),
+                  ['Base IVA', usd(c.bivC), true],
+                  [`IVA (${pIva}%)`, usd(c.ivaC)],
+                  ...(c.ivaAC > 0 ? [[`IVA Adicional (${pIvaA}%)`, usd(c.ivaAC)]] : []),
+                  ...(c.ganC > 0 ? [[`Percepción Ganancias (${pGan}%)`, usd(c.ganC)]] : []),
+                  ...(c.iibbC > 0 ? [[`Percepción IIBB (${pIIBB}%)`, usd(c.iibbC)]] : []),
+                ].map(([l, v, sub]) => (
+                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #f8fafc', fontSize: '0.83rem', color: sub ? '#94a3b8' : '#374151' }}>
+                    <span>{l}</span><span>{v}</span>
+                  </div>
+                ))}
+
+                {/* gastos locales */}
+                {(c.desC > 0 || c.terC > 0 || c.navC > 0 || c.logC > 0) && (<>
+                  <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '2px solid #e2e8f0', borderTop: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Gastos Locales</span>
+                  </div>
+                  {[
+                    ['Despachante de Aduana', c.desC],
+                    ['Terminal Portuaria', c.terC],
+                    ['Naviera', c.navC],
+                    ['Logística Interna', c.logC],
+                  ].filter(([, v]) => v > 0).map(([l, v]) => (
+                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #f8fafc', fontSize: '0.83rem', color: '#374151' }}>
+                      <span>{l}</span><span>{usd(v)}</span>
+                    </div>
+                  ))}
+                </>)}
+
+                {/* totales */}
+                <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '2px solid #e2e8f0', borderTop: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Resumen</span>
+                </div>
+                {[
+                  ['Costo Total CON IVA', usd(c.totConC), false, true],
+                  ['Costo Total SIN IVA', usd(c.totSinC), true, false],
+                  [`Honorarios del Servicio (${pHon}%)`, usd(c.honorarios), false, false],
+                  ...(c.gastFac > 0 ? [[`Gastos de Facturación (${pFac}%)`, usd(c.gastFac), true, false]] : []),
+                ].map(([l, v, sub, bold]) => (
+                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #f8fafc', fontSize: sub ? '0.8rem' : bold ? '0.88rem' : '0.83rem', fontWeight: bold ? 700 : 400, color: sub ? '#94a3b8' : bold ? '#1e293b' : '#374151' }}>
+                    <span>{l}</span><span>{v}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* final prices */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.2rem' }}>
+                <div style={{ background: '#065f46', borderRadius: '12px', padding: '1.1rem 1.2rem' }}>
+                  <p style={{ fontSize: '0.62rem', fontWeight: 700, color: '#6ee7b7', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Precio Final CON Factura</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{usd(c.precioConF)}</p>
+                  <p style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: '5px' }}>Hon. {usd(c.honorarios)} + Gs.Fac. {usd(c.gastFac)}</p>
+                </div>
+                <div style={{ background: '#78350f', borderRadius: '12px', padding: '1.1rem 1.2rem' }}>
+                  <p style={{ fontSize: '0.62rem', fontWeight: 700, color: '#fcd34d', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Precio Final SIN Factura</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{usd(c.precioSinF)}</p>
+                  <p style={{ fontSize: '0.68rem', color: '#fcd34d', marginTop: '5px' }}>Ahorro del cliente: {usd(c.gastFac)}</p>
+                </div>
+              </div>
+
+              {/* disclaimer */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem' }}>
+                <p style={{ fontSize: '0.68rem', color: '#94a3b8', lineHeight: 1.6 }}>
+                  * Cotización expresada en USD. Los valores son estimados y están sujetos a variación según el tipo de cambio oficial vigente al momento del despacho, actualizaciones arancelarias y condiciones del proveedor. Validez: 7 días hábiles.
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
