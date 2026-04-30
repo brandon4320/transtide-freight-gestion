@@ -150,7 +150,7 @@ export default function Cotizador() {
     const fobDR = n(fobDecReal) || fobR;      // FOB declarado real (base aranceles reales)
 
     const m3val = n(m3Merch);
-    const ratio = m3val > 0 && curM3 > 0 ? m3val / curM3 : 1;
+    const ratio = m3val > 0 && curM3 > 0 ? m3val / curM3 : 0;
     const fleteR = n(fleteRealInput) || (curCosts.flete * ratio);
 
     // ── LADO CLIENTE ──
@@ -350,24 +350,39 @@ export default function Cotizador() {
                 </div>
 
                 <p style={SECL}>Flete</p>
-                <F label="Flete cobrado al cliente (USD)">
+                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.45rem 0.8rem', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.73rem', color: '#94a3b8' }}>Tu costo prorrateado</span>
+                  <strong style={{ fontSize: '0.85rem', color: '#475569' }}>{usd(c.fleteR)}</strong>
+                </div>
+                <F label="Lo que cobrás al cliente (USD)">
                   <NI value={fleteCli} onChange={setFleteCli} />
                 </F>
                 <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '-0.5rem', marginBottom: '0.75rem' }}>
-                  Seguro = 1% del FOB Declarado al Cliente (calculado automáticamente) → {usd(c.segC)}
+                  Seguro = 1% del FOB Declarado al Cliente (automático) → {usd(c.segC)}
                 </p>
                 <div style={{ background: '#f0f7ff', borderRadius: '8px', padding: '0.5rem 0.8rem', fontSize: '0.78rem', color: '#2563eb', display: 'flex', justifyContent: 'space-between' }}>
                   <span>CIF base aranceles cliente</span>
                   <strong>{usd(c.cifC)}</strong>
                 </div>
 
-                <p style={SECL}>Gastos Locales cobrados al cliente</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
-                  <F label="Despachante"><NI value={gDes} onChange={setGDes} /></F>
-                  <F label="Terminal"><NI value={gTer} onChange={setGTer} /></F>
-                  <F label="Naviera"><NI value={gNav} onChange={setGNav} /></F>
-                  <F label="Logística Interna"><NI value={gLog} onChange={setGLog} /></F>
-                </div>
+                <p style={SECL}>Gastos Locales</p>
+                {[
+                  ['Despachante', c.desR, gDes, setGDes],
+                  ['Terminal',    c.terR, gTer, setGTer],
+                  ['Naviera',     c.navR, gNav, setGNav],
+                  ['Logística',   c.logR, gLog, setGLog],
+                ].map(([label, prorated, val, setVal]) => (
+                  <div key={label} style={{ marginBottom: '0.6rem', background: '#f8fafc', borderRadius: '10px', padding: '0.6rem 0.85rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>{label}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                        Tu costo prorrateado:&nbsp;<strong style={{ color: '#64748b' }}>{usd(prorated)}</strong>
+                      </span>
+                    </div>
+                    <label style={LBL}>Lo que cobrás al cliente</label>
+                    <NI value={val} onChange={setVal} />
+                  </div>
+                ))}
               </div>
             )}
 
