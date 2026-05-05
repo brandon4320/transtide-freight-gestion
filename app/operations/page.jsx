@@ -19,7 +19,35 @@ const rowPesos = (r) => n(r.usd) > 0 && n(r.tc) > 0 ? n(r.usd) * n(r.tc) : n(r.p
 const rowUSD   = (r) => n(r.usd) > 0 && n(r.tc) === 0 ? n(r.usd) : 0;
 const catTot   = (rows) => ({ pesos: rows.reduce((s, r) => s + rowPesos(r), 0), usd: rows.reduce((s, r) => s + rowUSD(r), 0) });
 const newRow   = () => ({ id: Date.now() + Math.random(), desc: '', factura: '', usd: '', tc: '', pesos: '' });
-const newProv  = () => ({ id: Date.now() + Math.random(), nombre: '', tipo: 'Cliente', m3: '', fobUSD: '', gastosOrigenUSD: '', tributosUSD: '', tributosTC: '' });
+const newProv  = () => ({ id: Date.now() + Math.random(), nombre: '', tipo: 'Cliente', puertoOrigen: '', m3: '', fobUSD: '', gastosOrigenUSD: '', tributosUSD: '', tributosTC: '' });
+
+// ─── checklist de tareas ──────────────────────────────────────────────────────
+const CHECKLIST = [
+  // Fase 1 — Pre-arribo
+  { id: 'cg',    fase: 1, label: 'Carta de garantía naviera' },
+  { id: 'ncm',   fase: 1, label: 'Revisión de posición arancelaria (NCM) vs. BL' },
+  { id: 'afip',  fase: 1, label: 'Verificar registro del despachante en AFIP para la sociedad que importe' },
+  { id: 'alta',  fase: 1, label: 'Alta del contenedor en terminal de arribo (TRP u otra)' },
+  { id: 'bl',    fase: 1, label: 'Recepción del BL original / telex release confirmado' },
+  { id: 'inv',   fase: 1, label: 'Solicitar invoice + packing list definitivos al proveedor' },
+  // Fase 2 — Documentación y Aduana
+  { id: 'legajo',fase: 2, label: 'Armado del legajo con despachante (invoice, BL, packing, etc.)' },
+  { id: 'fnav',  fase: 2, label: 'Recepción, pago y aviso de factura naviera' },
+  { id: 'lib',   fase: 2, label: 'Confirmación de liberación del contenedor por naviera (libre deuda)' },
+  // Fase 3 — Logística y Cierre
+  { id: 'flete', fase: 3, label: 'Coordinación de flete BsAs → Bahía Blanca' },
+  { id: 'facts', fase: 3, label: 'Recopilación de todas las facturas (naviera, terminal, despachante, flete, admin)' },
+  { id: 'costs', fase: 3, label: 'Carga de costos en sistema' },
+  { id: 'devol', fase: 3, label: 'Devolución del contenedor vacío + confirmación' },
+  { id: 'desp',  fase: 3, label: 'Carga de despacho aduanero final' },
+  { id: 'drive', fase: 3, label: 'Archivo del legajo completo en Drive' },
+];
+
+const FASES = [
+  { id: 1, label: 'Pre-arribo',           color: '#2563eb', bg: '#eff6ff', badge: '#bfdbfe' },
+  { id: 2, label: 'Documentación y Aduana', color: '#d97706', bg: '#fffbeb', badge: '#fde68a' },
+  { id: 3, label: 'Logística y Cierre',   color: '#059669', bg: '#f0fdf4', badge: '#bbf7d0' },
+];
 
 // ─── mock operations list ─────────────────────────────────────────────────────
 const MOCK_OPS = [
@@ -41,15 +69,16 @@ const FRANCO = {
   admin:      [],
   fleteIntl:  [],
   proveedores:[
-    { id: 1, nombre: 'karting',     tipo: 'Cliente', m3: 20.34, fobUSD: 25314, gastosOrigenUSD: '',  tributosUSD: 3991.87, tributosTC: 1390 },
-    { id: 2, nombre: 'gimnasio',    tipo: 'Cliente', m3: 13,    fobUSD: 5500,  gastosOrigenUSD: '',  tributosUSD: 2746.04, tributosTC: 1390 },
-    { id: 3, nombre: 'generadores', tipo: 'Propio',  m3: 4.8,   fobUSD: 16000, gastosOrigenUSD: 350, tributosUSD: 1176.05, tributosTC: 1390 },
+    { id: 1, nombre: 'karting',     tipo: 'Cliente', puertoOrigen: 'Shanghai',  m3: 20.34, fobUSD: 25314, gastosOrigenUSD: '',  tributosUSD: 3991.87, tributosTC: 1390 },
+    { id: 2, nombre: 'gimnasio',    tipo: 'Cliente', puertoOrigen: 'Guangzhou', m3: 13,    fobUSD: 5500,  gastosOrigenUSD: '',  tributosUSD: 2746.04, tributosTC: 1390 },
+    { id: 3, nombre: 'generadores', tipo: 'Propio',  puertoOrigen: 'Shenzhen',  m3: 4.8,   fobUSD: 16000, gastosOrigenUSD: 350, tributosUSD: 1176.05, tributosTC: 1390 },
   ],
   cobrar:[
     { tc: 1425, honorarios: false, despAdic: 8000 },
     { tc: 1425, honorarios: false, despAdic: 1670 },
     { tc: 1425, honorarios: false, despAdic: 920  },
   ],
+  checked: ['cg', 'ncm', 'bl', 'inv', 'legajo', 'fnav', 'lib', 'flete', 'facts', 'costs'],
 };
 
 // ─── InvoiceTable ─────────────────────────────────────────────────────────────
@@ -100,7 +129,6 @@ function InvoiceTable({ rows, onUpdate, onAdd, onRemove, accentColor = '#2563eb'
           </tbody>
         </table>
       </div>
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
         <button onClick={onAdd} style={{ background: 'none', border: `1px dashed ${accentColor}`, borderRadius: '7px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, color: accentColor, cursor: 'pointer' }}>
           + Agregar línea
@@ -130,7 +158,6 @@ function OperationsList({ onSelect }) {
           + Nueva operación
         </button>
       </div>
-
       <div style={{ display: 'grid', gap: '0.75rem' }}>
         {MOCK_OPS.map(op => (
           <div key={op.id} onClick={() => op.id === 'franco-modulos' && onSelect(op)}
@@ -166,11 +193,9 @@ function OperationsList({ onSelect }) {
 
 // ─── OperationDetail ──────────────────────────────────────────────────────────
 function OperationDetail({ op, onBack }) {
-  // default tab is 'proveedores' — user enters providers first
   const [mainTab,   setMainTab]   = useState('proveedores');
   const [gastoTab,  setGastoTab]  = useState('naviera');
 
-  // ── gastos state ──
   const init = (arr) => arr.length ? arr.map((r, i) => ({ ...r, id: i + 1 })) : [newRow()];
   const [naviera,    setNaviera]    = useState(init(FRANCO.naviera));
   const [terminal,   setTerminal]   = useState(init(FRANCO.terminal));
@@ -180,18 +205,22 @@ function OperationDetail({ op, onBack }) {
   const [admin,      setAdmin]      = useState(init(FRANCO.admin));
   const [fleteIntl,  setFleteIntl]  = useState(init(FRANCO.fleteIntl));
 
-  // ── proveedores + a cobrar ──
   const [proveedores, setProveedores] = useState([...FRANCO.proveedores, newProv()]);
   const [cobrar,      setCobrar]      = useState([...FRANCO.cobrar, { tc: '', honorarios: true, despAdic: '' }]);
+  const [checked,     setChecked]     = useState(new Set(FRANCO.checked));
 
-  // ── row helpers ──
-  const upd = (setter) => (i, f, v) => setter(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
-  const add = (setter) => () => setter(p => [...p, newRow()]);
-  const rem = (setter) => (i) => setter(p => p.filter((_, j) => j !== i));
+  const toggleCheck = (id) => setChecked(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const upd  = (setter) => (i, f, v) => setter(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
+  const add  = (setter) => () => setter(p => [...p, newRow()]);
+  const rem  = (setter) => (i) => setter(p => p.filter((_, j) => j !== i));
   const updP = (i, f, v) => setProveedores(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
   const updC = (i, f, v) => setCobrar(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
 
-  // ── calculations ──
   const calc = useMemo(() => {
     const tNav  = catTot(naviera);
     const tTerm = catTot(terminal);
@@ -202,9 +231,8 @@ function OperationDetail({ op, onBack }) {
     const tFlt  = catTot(fleteIntl);
 
     const enBlancoPesos = tNav.pesos + tTerm.pesos + tAdu.pesos + tTra.pesos + tDes.pesos + tAdm.pesos;
-    const enBlancoUSD   = tNav.usd   + tTerm.usd   + tAdu.usd   + tTra.usd   + tDes.usd   + tAdm.usd;
     const cashPesos     = tFlt.pesos;
-    const prorBase      = enBlancoPesos - tAdu.pesos + cashPesos; // excluye VEP aduana
+    const prorBase      = enBlancoPesos - tAdu.pesos + cashPesos;
 
     const totalM3 = proveedores.reduce((s, p) => s + n(p.m3), 0);
 
@@ -226,7 +254,7 @@ function OperationDetail({ op, onBack }) {
 
     return {
       tNav, tTerm, tAdu, tTra, tDes, tAdm, tFlt,
-      enBlancoPesos, enBlancoUSD, cashPesos,
+      enBlancoPesos, cashPesos,
       totalGeneral: enBlancoPesos + cashPesos,
       prorBase, totalM3, perProv,
       totalCostoFinal: perProv.reduce((s, p) => s + p.costoFinal, 0),
@@ -234,30 +262,27 @@ function OperationDetail({ op, onBack }) {
     };
   }, [naviera, terminal, aduana, transporte, despachante, admin, fleteIntl, proveedores, cobrar]);
 
-  // ── gasto categories config ──
   const GASTOS = [
-    { id: 'naviera',    label: 'Naviera',         color: '#2563eb', rows: naviera,    setter: setNaviera    },
-    { id: 'terminal',   label: 'Terminal',         color: '#7c3aed', rows: terminal,   setter: setTerminal   },
-    { id: 'aduana',     label: 'VEP Aduana',       color: '#dc2626', rows: aduana,     setter: setAduana     },
-    { id: 'transporte', label: 'Transporte',       color: '#d97706', rows: transporte, setter: setTransporte },
-    { id: 'despachante',label: 'Despachante',      color: '#059669', rows: despachante,setter: setDespachante},
-    { id: 'admin',      label: 'Gastos Admin',     color: '#64748b', rows: admin,      setter: setAdmin      },
-    { id: 'fleteIntl',  label: 'Flete Internacional (Cash)', color: '#374151', rows: fleteIntl, setter: setFleteIntl },
+    { id: 'naviera',    label: 'Naviera',                    color: '#2563eb', rows: naviera,    setter: setNaviera    },
+    { id: 'terminal',   label: 'Terminal',                   color: '#7c3aed', rows: terminal,   setter: setTerminal   },
+    { id: 'aduana',     label: 'VEP Aduana',                 color: '#dc2626', rows: aduana,     setter: setAduana     },
+    { id: 'transporte', label: 'Transporte',                 color: '#d97706', rows: transporte, setter: setTransporte },
+    { id: 'despachante',label: 'Despachante',                color: '#059669', rows: despachante,setter: setDespachante},
+    { id: 'admin',      label: 'Gastos Admin',               color: '#64748b', rows: admin,      setter: setAdmin      },
+    { id: 'fleteIntl',  label: 'Flete Internacional (Cash)', color: '#374151', rows: fleteIntl,  setter: setFleteIntl  },
   ];
-
-  const catTotMap = {
-    naviera: calc.tNav, terminal: calc.tTerm, aduana: calc.tAdu,
-    transporte: calc.tTra, despachante: calc.tDes, admin: calc.tAdm, fleteIntl: calc.tFlt,
-  };
+  const catTotMap = { naviera: calc.tNav, terminal: calc.tTerm, aduana: calc.tAdu, transporte: calc.tTra, despachante: calc.tDes, admin: calc.tAdm, fleteIntl: calc.tFlt };
   const activeCat = GASTOS.find(g => g.id === gastoTab);
-
-  // ── proveedores activos ──
   const provActivos = proveedores.filter(p => p.nombre !== '');
 
-  // ── tipo toggle colors ──
   const tipoStyle = (tipo) => tipo === 'Propio'
     ? { background: '#f0fdf4', color: '#059669', border: '1.5px solid #bbf7d0' }
     : { background: '#eff6ff', color: '#2563eb', border: '1.5px solid #bfdbfe' };
+
+  // checklist progress
+  const totalTasks = CHECKLIST.length;
+  const doneTasks  = CHECKLIST.filter(t => checked.has(t.id)).length;
+  const progress   = Math.round((doneTasks / totalTasks) * 100);
 
   return (
     <div style={{ paddingBottom: '3rem' }}>
@@ -270,10 +295,16 @@ function OperationDetail({ op, onBack }) {
         <div style={{ height: '20px', width: '1px', background: '#e2e8f0' }} />
         <div style={{ flex: 1 }}>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.15rem' }}>{op.nombre}</h2>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
             {[['Contenedor', op.contenedor], ['M³ total', `${calc.totalM3.toFixed(2)} m³`], ['Proveedores', provActivos.length], ['Fecha', op.fecha]].map(([k, v]) => (
               <span key={k} style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{k}: <strong style={{ color: '#475569' }}>{v}</strong></span>
             ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: '80px', height: '5px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#059669' : '#2563eb', borderRadius: '99px', transition: 'width 0.3s' }} />
+              </div>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{doneTasks}/{totalTasks} tareas</span>
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -288,7 +319,7 @@ function OperationDetail({ op, onBack }) {
         </div>
       </div>
 
-      {/* MAIN TABS — Proveedores first */}
+      {/* MAIN TABS */}
       <div style={{ display: 'flex', background: '#fff', borderRadius: '12px', padding: '4px', border: '1px solid #e2e8f0', gap: '3px', marginBottom: '1.25rem', width: 'fit-content' }}>
         {[['proveedores','Proveedores & Carga'],['gastos','Gastos'],['acobrar','A Cobrar (USD)']].map(([id, lbl]) => (
           <button key={id} onClick={() => setMainTab(id)} style={{ padding: '0.55rem 1.2rem', borderRadius: '9px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, background: mainTab === id ? '#2563eb' : 'transparent', color: mainTab === id ? '#fff' : '#94a3b8', transition: 'all 0.15s' }}>
@@ -299,91 +330,247 @@ function OperationDetail({ op, onBack }) {
 
       {/* ══ TAB: PROVEEDORES ════════════════════════════════════════════════ */}
       {mainTab === 'proveedores' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.25rem', alignItems: 'start' }}>
 
-          {/* provider input table */}
-          <div style={CARD}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          {/* LEFT: provider table */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+            <div style={CARD}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>Proveedores y carga</p>
+                <span style={{ fontSize: '0.65rem', background: '#fff7ed', color: '#d97706', padding: '0.15rem 0.6rem', borderRadius: '50px', fontWeight: 700, border: '1px solid #fde68a' }}>Primer paso</span>
               </div>
-              <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>Proveedores — Carga, m³ y FOB</p>
-              <span style={{ fontSize: '0.65rem', background: '#fff7ed', color: '#d97706', padding: '0.15rem 0.6rem', borderRadius: '50px', fontWeight: 700, border: '1px solid #fde68a' }}>
-                Comenzá por acá
-              </span>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#fff7ed' }}>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '20%' }}>Proveedor</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '10%' }}>Tipo</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '15%' }}>Puerto Origen</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '10%' }}>m³ (CBM)</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '12%' }}>FOB USD</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '13%' }}>Gs. Origen USD</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '10%' }}>% Ocup.</th>
+                      <th style={{ width: '5%' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proveedores.map((p, i) => {
+                      const ratioVal = calc.totalM3 > 0 ? n(p.m3) / calc.totalM3 : 0;
+                      return (
+                        <tr key={p.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                          <td style={TD}><input value={p.nombre} onChange={e => updP(i,'nombre',e.target.value)} style={{ ...INP, fontWeight: 600, color: '#2563eb' }} placeholder="Nombre" /></td>
+                          <td style={TD}>
+                            {p.nombre ? (
+                              <button onClick={() => updP(i,'tipo', p.tipo === 'Cliente' ? 'Propio' : 'Cliente')}
+                                style={{ ...tipoStyle(p.tipo || 'Cliente'), borderRadius: '50px', padding: '0.18rem 0.55rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                {(p.tipo || 'Cliente') === 'Cliente' ? '🤝' : '📦'} {p.tipo || 'Cliente'}
+                              </button>
+                            ) : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
+                          </td>
+                          <td style={TD}><input value={p.puertoOrigen} onChange={e => updP(i,'puertoOrigen',e.target.value)} style={{ ...INP, fontSize: '0.78rem' }} placeholder="Ej: Shanghai" /></td>
+                          <td style={TD}><input type="number" step="any" value={p.m3} onChange={e => updP(i,'m3',e.target.value)} style={{ ...INP, color: '#2563eb', fontWeight: 600, textAlign: 'right' }} placeholder="0" /></td>
+                          <td style={TD}><input type="number" step="any" value={p.fobUSD} onChange={e => updP(i,'fobUSD',e.target.value)} style={{ ...INP, color: '#2563eb', fontWeight: 600, textAlign: 'right' }} placeholder="0" /></td>
+                          <td style={TD}><input type="number" step="any" value={p.gastosOrigenUSD} onChange={e => updP(i,'gastosOrigenUSD',e.target.value)} style={{ ...INP, color: n(p.gastosOrigenUSD) > 0 ? '#d97706' : '#94a3b8', fontWeight: n(p.gastosOrigenUSD) > 0 ? 700 : 400, textAlign: 'right' }} placeholder="0" /></td>
+                          <td style={TD}>
+                            {p.nombre ? (
+                              <div style={{ background: '#fff7ed', borderRadius: '6px', padding: '0.28rem 0.5rem', textAlign: 'right' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d97706' }}>{pct(ratioVal)}</span>
+                              </div>
+                            ) : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
+                          </td>
+                          <td style={TD}>
+                            {p.nombre && <button onClick={() => { setProveedores(pr => pr.filter((_, j) => j !== i)); setCobrar(c => c.filter((_, j) => j !== i)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1' }}>×</button>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#f1f5f9' }}>
+                      <td colSpan={3} style={{ ...TD, fontWeight: 700 }}>TOTAL</td>
+                      <td style={{ ...TD, fontWeight: 700, textAlign: 'right' }}>{calc.totalM3.toFixed(2)} m³</td>
+                      <td style={{ ...TD, fontWeight: 700, textAlign: 'right' }}>{fmtU(proveedores.reduce((s, p) => s + n(p.fobUSD), 0))}</td>
+                      <td style={{ ...TD, fontWeight: 700, textAlign: 'right', color: '#d97706' }}>{fmtU(proveedores.reduce((s, p) => s + n(p.gastosOrigenUSD), 0))}</td>
+                      <td style={{ ...TD, fontWeight: 700 }}>100%</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button onClick={() => { setProveedores(p => [...p, newProv()]); setCobrar(c => [...c, { tc: '', honorarios: true, despAdic: '' }]); }}
+                style={{ marginTop: '0.6rem', background: 'none', border: '1px dashed #d97706', borderRadius: '7px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, color: '#d97706', cursor: 'pointer' }}>
+                + Agregar proveedor
+              </button>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#fff7ed' }}>
-                    <th style={{ ...TH, color: '#92400e', background: 'none', width: '22%' }}>Proveedor</th>
-                    <th style={{ ...TH, color: '#92400e', background: 'none', width: '12%' }}>Tipo</th>
-                    <th style={{ ...TH, color: '#92400e', background: 'none', width: '10%' }}>m³ (CBM)</th>
-                    <th style={{ ...TH, color: '#92400e', background: 'none', width: '13%' }}>FOB USD</th>
-                    <th style={{ ...TH, color: '#92400e', background: 'none', width: '14%' }}>Gs. Origen USD</th>
-                    <th style={{ ...TH, color: '#92400e', background: 'none', width: '11%' }}>% Ocupación</th>
-                    <th style={{ width: '7%' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {proveedores.map((p, i) => {
-                    const ratioVal = calc.totalM3 > 0 ? n(p.m3) / calc.totalM3 : 0;
-                    return (
-                      <tr key={p.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                        <td style={TD}><input value={p.nombre} onChange={e => updP(i,'nombre',e.target.value)} style={{ ...INP, fontWeight: 600, color: '#2563eb' }} placeholder="Nombre del proveedor" /></td>
-                        <td style={TD}>
-                          {p.nombre ? (
-                            <button
-                              onClick={() => updP(i,'tipo', p.tipo === 'Cliente' ? 'Propio' : 'Cliente')}
-                              style={{ ...tipoStyle(p.tipo || 'Cliente'), borderRadius: '50px', padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                            >
-                              {(p.tipo || 'Cliente') === 'Cliente' ? '🤝' : '📦'} {p.tipo || 'Cliente'}
-                            </button>
-                          ) : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
-                        </td>
-                        <td style={TD}><input type="number" step="any" value={p.m3} onChange={e => updP(i,'m3',e.target.value)} style={{ ...INP, color: '#2563eb', fontWeight: 600, textAlign: 'right' }} placeholder="0" /></td>
-                        <td style={TD}><input type="number" step="any" value={p.fobUSD} onChange={e => updP(i,'fobUSD',e.target.value)} style={{ ...INP, color: '#2563eb', fontWeight: 600, textAlign: 'right' }} placeholder="0" /></td>
-                        <td style={TD}>
-                          <input type="number" step="any" value={p.gastosOrigenUSD} onChange={e => updP(i,'gastosOrigenUSD',e.target.value)}
-                            style={{ ...INP, color: n(p.gastosOrigenUSD) > 0 ? '#d97706' : '#94a3b8', fontWeight: n(p.gastosOrigenUSD) > 0 ? 700 : 400, textAlign: 'right' }} placeholder="0" />
-                        </td>
-                        <td style={TD}>
-                          {p.nombre ? (
-                            <div style={{ background: '#fff7ed', borderRadius: '6px', padding: '0.3rem 0.6rem', textAlign: 'right' }}>
-                              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#d97706' }}>{pct(ratioVal)}</span>
-                            </div>
-                          ) : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
-                        </td>
-                        <td style={TD}>
-                          {p.nombre && <button onClick={() => { setProveedores(pr => pr.filter((_, j) => j !== i)); setCobrar(c => c.filter((_, j) => j !== i)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1' }}>×</button>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: '#f1f5f9' }}>
-                    <td style={{ ...TD, fontWeight: 700 }}>TOTAL</td>
-                    <td style={TD} />
-                    <td style={{ ...TD, fontWeight: 700, textAlign: 'right' }}>{calc.totalM3.toFixed(2)} m³</td>
-                    <td style={{ ...TD, fontWeight: 700, textAlign: 'right' }}>{fmtU(proveedores.reduce((s, p) => s + n(p.fobUSD), 0))}</td>
-                    <td style={{ ...TD, fontWeight: 700, textAlign: 'right', color: '#d97706' }}>{fmtU(proveedores.reduce((s, p) => s + n(p.gastosOrigenUSD), 0))}</td>
-                    <td style={{ ...TD, fontWeight: 700 }}>100%</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
+
+            {/* resumen ocupación contenedor */}
+            <div style={{ ...CARD, background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                <div>
+                  <p style={LBL}>m³ cargados</p>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>{calc.totalM3.toFixed(2)} m³</p>
+                </div>
+                <div>
+                  <p style={LBL}>FOB total</p>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#2563eb' }}>{fmtU(proveedores.reduce((s,p)=>s+n(p.fobUSD),0))}</p>
+                </div>
+                <div>
+                  <p style={LBL}>Puertos</p>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
+                    {[...new Set(proveedores.filter(p=>p.puertoOrigen).map(p=>p.puertoOrigen))].join(' · ') || '—'}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setMainTab('gastos')} style={{ padding: '0.55rem 1.1rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#2563eb', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+                Cargar gastos →
+              </button>
             </div>
-            <button onClick={() => { setProveedores(p => [...p, newProv()]); setCobrar(c => [...c, { tc: '', honorarios: true, despAdic: '' }]); }}
-              style={{ marginTop: '0.6rem', background: 'none', border: '1px dashed #d97706', borderRadius: '7px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, color: '#d97706', cursor: 'pointer' }}>
-              + Agregar proveedor
-            </button>
           </div>
 
-          {/* VEP per provider + proration results side by side */}
+          {/* RIGHT: checklist sticky */}
+          <div style={{ position: 'sticky', top: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+            {/* progress header */}
+            <div style={{ ...CARD, padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>Avance de la operación</p>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: progress === 100 ? '#059669' : '#2563eb' }}>{progress}%</span>
+              </div>
+              <div style={{ width: '100%', height: '7px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#059669' : '#2563eb', borderRadius: '99px', transition: 'width 0.3s' }} />
+              </div>
+              <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.4rem' }}>{doneTasks} de {totalTasks} tareas completadas</p>
+            </div>
+
+            {/* checklist by phase */}
+            {FASES.map(fase => {
+              const items = CHECKLIST.filter(t => t.fase === fase.id);
+              const doneInFase = items.filter(t => checked.has(t.id)).length;
+              return (
+                <div key={fase.id} style={{ ...CARD, padding: '0.9rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: fase.color }} />
+                      <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e293b' }}>Fase {fase.id} — {fase.label}</p>
+                    </div>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, background: fase.bg, color: fase.color, padding: '0.1rem 0.5rem', borderRadius: '50px', border: `1px solid ${fase.badge}` }}>
+                      {doneInFase}/{items.length}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {items.map(task => {
+                      const done = checked.has(task.id);
+                      return (
+                        <div key={task.id} onClick={() => toggleCheck(task.id)}
+                          style={{ display: 'flex', alignItems: 'flex-start', gap: '0.55rem', cursor: 'pointer', padding: '0.3rem 0.4rem', borderRadius: '7px', transition: 'background 0.1s', background: done ? fase.bg : 'transparent' }}
+                          onMouseEnter={e => !done && (e.currentTarget.style.background = '#f8fafc')}
+                          onMouseLeave={e => !done && (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: done ? `2px solid ${fase.color}` : '2px solid #cbd5e1', background: done ? fase.color : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px', transition: 'all 0.15s' }}>
+                            {done && <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: done ? '#64748b' : '#374151', textDecoration: done ? 'line-through' : 'none', lineHeight: '1.4', fontWeight: done ? 400 : 500 }}>
+                            {task.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ══ TAB: GASTOS ══════════════════════════════════════════════════════ */}
+      {mainTab === 'gastos' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.25rem', alignItems: 'start' }}>
+
+            {/* left: invoice input */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {GASTOS.map(g => {
+                  const tot = catTotMap[g.id];
+                  const active = gastoTab === g.id;
+                  return (
+                    <button key={g.id} onClick={() => setGastoTab(g.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0.5rem 0.85rem', borderRadius: '10px', border: active ? `2px solid ${g.color}` : '1px solid #e2e8f0', cursor: 'pointer', background: active ? g.color + '10' : '#fff', transition: 'all 0.15s', minWidth: '110px' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: active ? g.color : '#94a3b8' }}>{g.label}</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: active ? g.color : (tot.pesos > 0 ? '#1e293b' : '#cbd5e1') }}>
+                        {tot.pesos > 0 ? fmtP(tot.pesos) : '—'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {activeCat && (
+                <div style={CARD}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: activeCat.color }} />
+                    <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>{activeCat.label}</p>
+                    {activeCat.id === 'aduana' && (
+                      <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#dc2626', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700 }}>No se proratea — se asigna por proveedor</span>
+                    )}
+                    {activeCat.id === 'fleteIntl' && (
+                      <span style={{ fontSize: '0.65rem', background: '#f1f5f9', color: '#64748b', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700 }}>CASH — se proratea por m³</span>
+                    )}
+                  </div>
+                  <InvoiceTable rows={activeCat.rows} accentColor={activeCat.color} onUpdate={upd(activeCat.setter)} onAdd={add(activeCat.setter)} onRemove={rem(activeCat.setter)} />
+                </div>
+              )}
+
+              <div style={{ ...CARD, background: '#fffbeb', border: '1px solid #fde68a', padding: '0.85rem 1rem' }}>
+                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#92400e', marginBottom: '0.4rem' }}>Base de prorrateo por m³</p>
+                <p style={{ fontSize: '0.78rem', color: '#78350f' }}>
+                  Total en Blanco <strong>{fmtP(calc.enBlancoPesos)}</strong>
+                  &nbsp;− VEP Aduana <strong>{fmtP(calc.tAdu.pesos)}</strong>
+                  &nbsp;+ Cash <strong>{fmtP(calc.cashPesos)}</strong>
+                  &nbsp;= <strong>{fmtP(calc.prorBase)}</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* right: totals summary sticky */}
+            <div style={{ position: 'sticky', top: '1rem' }}>
+              <div style={CARD}>
+                <p style={{ ...LBL, marginBottom: '0.85rem' }}>Resumen de gastos</p>
+                {GASTOS.map(g => {
+                  const tot = catTotMap[g.id];
+                  return (
+                    <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f8fafc' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: tot.pesos > 0 ? g.color : '#e2e8f0' }} />
+                        <span style={{ fontSize: '0.78rem', color: '#475569' }}>{g.label}</span>
+                      </div>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: tot.pesos > 0 ? '#1e293b' : '#cbd5e1' }}>{fmtP(tot.pesos)}</span>
+                    </div>
+                  );
+                })}
+                <div style={{ marginTop: '0.85rem', borderTop: '2px solid #e2e8f0', paddingTop: '0.85rem' }}>
+                  {[['Total en Blanco (vía banco)', calc.enBlancoPesos], ['Total Cash (flete intl.)', calc.cashPesos]].map(([lbl, val]) => (
+                    <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <span style={{ color: '#64748b' }}>{lbl}</span>
+                      <span style={{ color: val > 0 ? '#1e293b' : '#cbd5e1' }}>{fmtP(val)}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.55rem 0.75rem', background: '#1e293b', borderRadius: '10px', marginTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8' }}>TOTAL GENERAL</span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>{fmtP(calc.totalGeneral)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* VEP + Costo final — aparecen después de cargar los gastos */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
 
-            {/* VEP Aduana por proveedor */}
             <div style={CARD}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#dc2626' }} />
@@ -419,11 +606,10 @@ function OperationDetail({ op, onBack }) {
               </table>
             </div>
 
-            {/* Costo Final por proveedor */}
             <div style={CARD}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#059669' }} />
-                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>Costo final asignado</p>
+                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>Costo final asignado por proveedor</p>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -450,127 +636,6 @@ function OperationDetail({ op, onBack }) {
                   </tr>
                 </tfoot>
               </table>
-            </div>
-          </div>
-
-          {/* Gastos avance mini-panel */}
-          <div style={{ ...CARD, background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-              <div>
-                <p style={LBL}>Base de prorrateo</p>
-                <p style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b' }}>{fmtP(calc.prorBase)}</p>
-                <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '2px' }}>En blanco − VEP + Cash</p>
-              </div>
-              <div>
-                <p style={LBL}>Total General gastos</p>
-                <p style={{ fontSize: '1rem', fontWeight: 800, color: '#059669' }}>{fmtP(calc.totalGeneral)}</p>
-              </div>
-              <div>
-                <p style={LBL}>Costo total asignado</p>
-                <p style={{ fontSize: '1rem', fontWeight: 800, color: '#2563eb' }}>{fmtP(calc.totalCostoFinal)}</p>
-              </div>
-            </div>
-            <button onClick={() => setMainTab('gastos')} style={{ padding: '0.55rem 1.1rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#2563eb', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
-              Cargar gastos →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ══ TAB: GASTOS ══════════════════════════════════════════════════════ */}
-      {mainTab === 'gastos' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.25rem', alignItems: 'start' }}>
-
-          {/* left: input area */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-
-            {/* category pills */}
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {GASTOS.map(g => {
-                const tot = catTotMap[g.id];
-                const active = gastoTab === g.id;
-                return (
-                  <button key={g.id} onClick={() => setGastoTab(g.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0.5rem 0.85rem', borderRadius: '10px', border: active ? `2px solid ${g.color}` : '1px solid #e2e8f0', cursor: 'pointer', background: active ? g.color + '10' : '#fff', transition: 'all 0.15s', minWidth: '110px' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: active ? g.color : '#94a3b8' }}>{g.label}</span>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: active ? g.color : (tot.pesos > 0 ? '#1e293b' : '#cbd5e1') }}>
-                      {tot.pesos > 0 ? fmtP(tot.pesos) : '—'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* active category table */}
-            {activeCat && (
-              <div style={CARD}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: activeCat.color }} />
-                  <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>{activeCat.label}</p>
-                  {activeCat.id === 'aduana' && (
-                    <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#dc2626', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700 }}>
-                      No se proratea — se asigna por proveedor
-                    </span>
-                  )}
-                  {activeCat.id === 'fleteIntl' && (
-                    <span style={{ fontSize: '0.65rem', background: '#f1f5f9', color: '#64748b', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700 }}>
-                      CASH — se proratea por m³
-                    </span>
-                  )}
-                </div>
-                <InvoiceTable
-                  rows={activeCat.rows}
-                  accentColor={activeCat.color}
-                  onUpdate={upd(activeCat.setter)}
-                  onAdd={add(activeCat.setter)}
-                  onRemove={rem(activeCat.setter)}
-                />
-              </div>
-            )}
-
-            {/* base de prorrateo explanation */}
-            <div style={{ ...CARD, background: '#fffbeb', border: '1px solid #fde68a', padding: '0.85rem 1rem' }}>
-              <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#92400e', marginBottom: '0.5rem' }}>Base de prorrateo por m³</p>
-              <p style={{ fontSize: '0.78rem', color: '#78350f' }}>
-                Total en Blanco <strong>{fmtP(calc.enBlancoPesos)}</strong>
-                &nbsp;− VEP Aduana <strong>{fmtP(calc.tAdu.pesos)}</strong>
-                &nbsp;+ Cash <strong>{fmtP(calc.cashPesos)}</strong>
-                &nbsp;= <strong>{fmtP(calc.prorBase)}</strong>
-              </p>
-            </div>
-          </div>
-
-          {/* right: totals summary (sticky) */}
-          <div style={{ position: 'sticky', top: '1rem' }}>
-            <div style={CARD}>
-              <p style={{ ...LBL, marginBottom: '0.85rem' }}>Resumen de gastos</p>
-              {GASTOS.map(g => {
-                const tot = catTotMap[g.id];
-                return (
-                  <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f8fafc' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: tot.pesos > 0 ? g.color : '#e2e8f0' }} />
-                      <span style={{ fontSize: '0.78rem', color: '#475569' }}>{g.label}</span>
-                    </div>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: tot.pesos > 0 ? '#1e293b' : '#cbd5e1' }}>{fmtP(tot.pesos)}</span>
-                  </div>
-                );
-              })}
-
-              <div style={{ marginTop: '0.85rem', borderTop: '2px solid #e2e8f0', paddingTop: '0.85rem' }}>
-                {[
-                  ['Total en Blanco (vía banco)', calc.enBlancoPesos, '#1F4E79'],
-                  ['Total Cash (flete intl.)',     calc.cashPesos,     '#375623'],
-                ].map(([lbl, val, c]) => (
-                  <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', fontSize: '0.8rem', fontWeight: 600 }}>
-                    <span style={{ color: '#64748b' }}>{lbl}</span>
-                    <span style={{ color: val > 0 ? '#1e293b' : '#cbd5e1' }}>{fmtP(val)}</span>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.55rem 0.75rem', background: '#1e293b', borderRadius: '10px', marginTop: '0.5rem' }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8' }}>TOTAL GENERAL</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>{fmtP(calc.totalGeneral)}</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
