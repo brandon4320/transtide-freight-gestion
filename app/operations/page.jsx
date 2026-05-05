@@ -1,5 +1,11 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+
+const CLIENTES_KEY = 'transtide-clientes';
+const MOCK_CLIENTES = [
+  { id: 'c1', nombre: 'Franco Modulos SRL', cuit: '30-71234567-8' },
+  { id: 'c2', nombre: 'Gym Equipment SA',   cuit: '30-67890123-4' },
+];
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 const n    = (v) => parseFloat(v) || 0;
@@ -19,7 +25,7 @@ const rowPesos = (r) => n(r.usd) > 0 && n(r.tc) > 0 ? n(r.usd) * n(r.tc) : n(r.p
 const rowUSD   = (r) => n(r.usd) > 0 && n(r.tc) === 0 ? n(r.usd) : 0;
 const catTot   = (rows) => ({ pesos: rows.reduce((s, r) => s + rowPesos(r), 0), usd: rows.reduce((s, r) => s + rowUSD(r), 0) });
 const newRow   = () => ({ id: Date.now() + Math.random(), desc: '', factura: '', usd: '', tc: '', pesos: '' });
-const newProv  = () => ({ id: Date.now() + Math.random(), nombre: '', tipo: 'Cliente', m3: '', fobUSD: '', gastosOrigenUSD: '', tributosUSD: '', tributosTC: '' });
+const newProv  = () => ({ id: Date.now() + Math.random(), nombre: '', tipo: 'Cliente', clienteId: '', m3: '', fobUSD: '', gastosOrigenUSD: '', tributosUSD: '', tributosTC: '' });
 
 // ─── checklist de tareas ──────────────────────────────────────────────────────
 const CHECKLIST = [
@@ -69,9 +75,9 @@ const FRANCO = {
   admin:      [],
   fleteIntl:  [],
   proveedores:[
-    { id: 1, nombre: 'karting',     tipo: 'Cliente', m3: 20.34, fobUSD: 25314, gastosOrigenUSD: '',  tributosUSD: 3991.87, tributosTC: 1390 },
-    { id: 2, nombre: 'gimnasio',    tipo: 'Cliente', m3: 13,    fobUSD: 5500,  gastosOrigenUSD: '',  tributosUSD: 2746.04, tributosTC: 1390 },
-    { id: 3, nombre: 'generadores', tipo: 'Propio',  m3: 4.8,   fobUSD: 16000, gastosOrigenUSD: 350, tributosUSD: 1176.05, tributosTC: 1390 },
+    { id: 1, nombre: 'karting',     tipo: 'Cliente', clienteId: 'c1', m3: 20.34, fobUSD: 25314, gastosOrigenUSD: '',  tributosUSD: 3991.87, tributosTC: 1390 },
+    { id: 2, nombre: 'gimnasio',    tipo: 'Cliente', clienteId: 'c1', m3: 13,    fobUSD: 5500,  gastosOrigenUSD: '',  tributosUSD: 2746.04, tributosTC: 1390 },
+    { id: 3, nombre: 'generadores', tipo: 'Propio',  clienteId: '',   m3: 4.8,   fobUSD: 16000, gastosOrigenUSD: 350, tributosUSD: 1176.05, tributosTC: 1390 },
   ],
   cobrar:[
     { tc: 1425, honorarios: false, despAdic: 8000 },
@@ -207,8 +213,28 @@ function OperationDetail({ op, onBack }) {
 
   const [proveedores,  setProveedores]  = useState([...FRANCO.proveedores, newProv()]);
   const [cobrar,       setCobrar]       = useState([...FRANCO.cobrar, { tc: '', honorarios: true, despAdic: '' }]);
-  const [checked,      setChecked]      = useState(new Set(FRANCO.checked));
   const [puertoOrigen, setPuertoOrigen] = useState('Shanghai');
+  const [clientes,     setClientes]     = useState(MOCK_CLIENTES);
+
+  // ── checklist: persist per operation in localStorage ──
+  const CHECKLIST_KEY = `transtide-checklist-${op.id}`;
+  const [checked, setChecked] = useState(() => {
+    try {
+      const saved = typeof window !== 'undefined' && localStorage.getItem(CHECKLIST_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set(FRANCO.checked);
+    } catch { return new Set(FRANCO.checked); }
+  });
+  useEffect(() => {
+    localStorage.setItem(CHECKLIST_KEY, JSON.stringify([...checked]));
+  }, [checked]);
+
+  // ── load clientes from localStorage ──
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CLIENTES_KEY);
+      if (saved) setClientes(JSON.parse(saved));
+    } catch { /* keep mock */ }
+  }, []);
 
   const toggleCheck = (id) => setChecked(prev => {
     const next = new Set(prev);
@@ -240,6 +266,7 @@ function OperationDetail({ op, onBack }) {
     const perProv = proveedores
       .filter(p => p.nombre !== '')
       .map((p, i) => {
+        const clienteNombre = p.clienteId ? (clientes.find(c => c.id === p.clienteId)?.nombre || '') : '';
         const ratio        = totalM3 > 0 ? n(p.m3) / totalM3 : 0;
         const prorPesos    = Math.round(ratio * prorBase);
         const tributoPesos = Math.round(n(p.tributosUSD) * n(p.tributosTC));
@@ -250,7 +277,7 @@ function OperationDetail({ op, onBack }) {
         const fobPlus      = n(p.fobUSD) + gastosUSD + origenUSD;
         const honorarios   = cb.honorarios ? Math.round(fobPlus * 0.04 * 100) / 100 : 0;
         const totalUSD     = Math.round((gastosUSD + origenUSD + honorarios + n(cb.despAdic)) * 100) / 100;
-        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, fobPlus, honorarios, totalUSD, cb };
+        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', clienteNombre, m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, fobPlus, honorarios, totalUSD, cb };
       });
 
     return {
@@ -261,7 +288,7 @@ function OperationDetail({ op, onBack }) {
       totalCostoFinal: perProv.reduce((s, p) => s + p.costoFinal, 0),
       totalACobrar:    perProv.reduce((s, p) => s + p.totalUSD, 0),
     };
-  }, [naviera, terminal, aduana, transporte, despachante, admin, fleteIntl, proveedores, cobrar]);
+  }, [naviera, terminal, aduana, transporte, despachante, admin, fleteIntl, proveedores, cobrar, clientes]);
 
   const GASTOS = [
     { id: 'naviera',    label: 'Naviera',                    color: '#2563eb', rows: naviera,    setter: setNaviera    },
@@ -363,12 +390,30 @@ function OperationDetail({ op, onBack }) {
                       return (
                         <tr key={p.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
                           <td style={TD}><input value={p.nombre} onChange={e => updP(i,'nombre',e.target.value)} style={{ ...INP, fontWeight: 600, color: '#2563eb' }} placeholder="Nombre" /></td>
-                          <td style={TD}>
+                          <td style={{ ...TD, minWidth: '180px' }}>
                             {p.nombre ? (
-                              <button onClick={() => updP(i,'tipo', p.tipo === 'Cliente' ? 'Propio' : 'Cliente')}
-                                style={{ ...tipoStyle(p.tipo || 'Cliente'), borderRadius: '50px', padding: '0.18rem 0.55rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                {(p.tipo || 'Cliente') === 'Cliente' ? '🤝' : '📦'} {p.tipo || 'Cliente'}
-                              </button>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                {/* Propio / Cliente toggle */}
+                                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                                  {['Cliente','Propio'].map(t => (
+                                    <button key={t} onClick={() => updP(i,'tipo',t)}
+                                      style={{ padding: '0.15rem 0.55rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700,
+                                        background: (p.tipo||'Cliente') === t ? (t==='Propio' ? '#f0fdf4' : '#eff6ff') : '#f1f5f9',
+                                        color:      (p.tipo||'Cliente') === t ? (t==='Propio' ? '#059669' : '#2563eb') : '#94a3b8',
+                                      }}>
+                                      {t === 'Propio' ? '📦' : '🤝'} {t}
+                                    </button>
+                                  ))}
+                                </div>
+                                {/* Client selector — only when tipo is Cliente */}
+                                {(p.tipo || 'Cliente') === 'Cliente' && (
+                                  <select value={p.clienteId || ''} onChange={e => updP(i,'clienteId',e.target.value)}
+                                    style={{ fontSize: '0.75rem', padding: '0.22rem 0.45rem', border: '1px solid #bfdbfe', borderRadius: '6px', background: '#eff6ff', color: '#1e40af', fontWeight: 600, outline: 'none', cursor: 'pointer', maxWidth: '170px' }}>
+                                    <option value="">— Seleccionar cliente —</option>
+                                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                  </select>
+                                )}
+                              </div>
                             ) : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
                           </td>
                           <td style={TD}><input type="number" step="any" value={p.m3} onChange={e => updP(i,'m3',e.target.value)} style={{ ...INP, color: '#2563eb', fontWeight: 600, textAlign: 'right' }} placeholder="0" /></td>
@@ -669,8 +714,8 @@ function OperationDetail({ op, onBack }) {
                     <tr key={p.nombre} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
                       <td style={{ ...TD, fontWeight: 700 }}>{p.nombre}</td>
                       <td style={TD}>
-                        <span style={{ ...tipoStyle(p.tipo), display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.5rem', borderRadius: '50px', fontSize: '0.68rem', fontWeight: 700 }}>
-                          {p.tipo === 'Propio' ? '📦' : '🤝'} {p.tipo}
+                        <span style={{ ...tipoStyle(p.tipo), display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.5rem', borderRadius: '50px', fontSize: '0.68rem', fontWeight: 700, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.tipo === 'Propio' ? '📦 Propio' : `🤝 ${p.clienteNombre || 'Cliente'}`}
                         </span>
                       </td>
                       <td style={{ ...TD, textAlign: 'right', color: '#64748b' }}>{p.m3}</td>
@@ -725,8 +770,8 @@ function OperationDetail({ op, onBack }) {
               <div key={p.nombre} style={{ ...CARD, borderTop: `3px solid ${p.tipo === 'Propio' ? '#059669' : '#7c3aed'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{p.nombre}</p>
-                  <span style={{ ...tipoStyle(p.tipo), fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '50px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                    {p.tipo === 'Propio' ? '📦' : '🤝'} {p.tipo}
+                  <span style={{ ...tipoStyle(p.tipo), fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '50px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.tipo === 'Propio' ? '📦 Propio' : `🤝 ${p.clienteNombre || 'Cliente'}`}
                   </span>
                 </div>
                 <p style={{ fontSize: '1.5rem', fontWeight: 800, color: p.tipo === 'Propio' ? '#059669' : '#7c3aed', lineHeight: 1, marginBottom: '0.4rem' }}>{fmtU(p.totalUSD)}</p>
