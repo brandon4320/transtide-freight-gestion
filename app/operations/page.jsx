@@ -19,7 +19,7 @@ const rowPesos = (r) => n(r.usd) > 0 && n(r.tc) > 0 ? n(r.usd) * n(r.tc) : n(r.p
 const rowUSD   = (r) => n(r.usd) > 0 && n(r.tc) === 0 ? n(r.usd) : 0;
 const catTot   = (rows) => ({ pesos: rows.reduce((s, r) => s + rowPesos(r), 0), usd: rows.reduce((s, r) => s + rowUSD(r), 0) });
 const newRow   = () => ({ id: Date.now() + Math.random(), desc: '', factura: '', usd: '', tc: '', pesos: '' });
-const newProv  = () => ({ id: Date.now() + Math.random(), nombre: '', tipo: 'Cliente', puertoOrigen: '', m3: '', fobUSD: '', gastosOrigenUSD: '', tributosUSD: '', tributosTC: '' });
+const newProv  = () => ({ id: Date.now() + Math.random(), nombre: '', tipo: 'Cliente', m3: '', fobUSD: '', gastosOrigenUSD: '', tributosUSD: '', tributosTC: '' });
 
 // ─── checklist de tareas ──────────────────────────────────────────────────────
 const CHECKLIST = [
@@ -69,9 +69,9 @@ const FRANCO = {
   admin:      [],
   fleteIntl:  [],
   proveedores:[
-    { id: 1, nombre: 'karting',     tipo: 'Cliente', puertoOrigen: 'Shanghai',  m3: 20.34, fobUSD: 25314, gastosOrigenUSD: '',  tributosUSD: 3991.87, tributosTC: 1390 },
-    { id: 2, nombre: 'gimnasio',    tipo: 'Cliente', puertoOrigen: 'Guangzhou', m3: 13,    fobUSD: 5500,  gastosOrigenUSD: '',  tributosUSD: 2746.04, tributosTC: 1390 },
-    { id: 3, nombre: 'generadores', tipo: 'Propio',  puertoOrigen: 'Shenzhen',  m3: 4.8,   fobUSD: 16000, gastosOrigenUSD: 350, tributosUSD: 1176.05, tributosTC: 1390 },
+    { id: 1, nombre: 'karting',     tipo: 'Cliente', m3: 20.34, fobUSD: 25314, gastosOrigenUSD: '',  tributosUSD: 3991.87, tributosTC: 1390 },
+    { id: 2, nombre: 'gimnasio',    tipo: 'Cliente', m3: 13,    fobUSD: 5500,  gastosOrigenUSD: '',  tributosUSD: 2746.04, tributosTC: 1390 },
+    { id: 3, nombre: 'generadores', tipo: 'Propio',  m3: 4.8,   fobUSD: 16000, gastosOrigenUSD: 350, tributosUSD: 1176.05, tributosTC: 1390 },
   ],
   cobrar:[
     { tc: 1425, honorarios: false, despAdic: 8000 },
@@ -205,9 +205,10 @@ function OperationDetail({ op, onBack }) {
   const [admin,      setAdmin]      = useState(init(FRANCO.admin));
   const [fleteIntl,  setFleteIntl]  = useState(init(FRANCO.fleteIntl));
 
-  const [proveedores, setProveedores] = useState([...FRANCO.proveedores, newProv()]);
-  const [cobrar,      setCobrar]      = useState([...FRANCO.cobrar, { tc: '', honorarios: true, despAdic: '' }]);
-  const [checked,     setChecked]     = useState(new Set(FRANCO.checked));
+  const [proveedores,  setProveedores]  = useState([...FRANCO.proveedores, newProv()]);
+  const [cobrar,       setCobrar]       = useState([...FRANCO.cobrar, { tc: '', honorarios: true, despAdic: '' }]);
+  const [checked,      setChecked]      = useState(new Set(FRANCO.checked));
+  const [puertoOrigen, setPuertoOrigen] = useState('Shanghai');
 
   const toggleCheck = (id) => setChecked(prev => {
     const next = new Set(prev);
@@ -296,7 +297,7 @@ function OperationDetail({ op, onBack }) {
         <div style={{ flex: 1 }}>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.15rem' }}>{op.nombre}</h2>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            {[['Contenedor', op.contenedor], ['M³ total', `${calc.totalM3.toFixed(2)} m³`], ['Proveedores', provActivos.length], ['Fecha', op.fecha]].map(([k, v]) => (
+            {[['Contenedor', op.contenedor], ['Puerto Origen', puertoOrigen || '—'], ['M³ total', `${calc.totalM3.toFixed(2)} m³`], ['Proveedores', provActivos.length], ['Fecha', op.fecha]].map(([k, v]) => (
               <span key={k} style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{k}: <strong style={{ color: '#475569' }}>{v}</strong></span>
             ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -347,13 +348,12 @@ function OperationDetail({ op, onBack }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#fff7ed' }}>
-                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '20%' }}>Proveedor</th>
-                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '10%' }}>Tipo</th>
-                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '15%' }}>Puerto Origen</th>
-                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '10%' }}>m³ (CBM)</th>
-                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '12%' }}>FOB USD</th>
-                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '13%' }}>Gs. Origen USD</th>
-                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '10%' }}>% Ocup.</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '25%' }}>Proveedor</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '12%' }}>Tipo</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '12%' }}>m³ (CBM)</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '15%' }}>FOB USD</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '15%' }}>Gs. Origen USD</th>
+                      <th style={{ ...TH, color: '#92400e', background: 'none', width: '11%' }}>% Ocup.</th>
                       <th style={{ width: '5%' }}></th>
                     </tr>
                   </thead>
@@ -371,7 +371,6 @@ function OperationDetail({ op, onBack }) {
                               </button>
                             ) : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
                           </td>
-                          <td style={TD}><input value={p.puertoOrigen} onChange={e => updP(i,'puertoOrigen',e.target.value)} style={{ ...INP, fontSize: '0.78rem' }} placeholder="Ej: Shanghai" /></td>
                           <td style={TD}><input type="number" step="any" value={p.m3} onChange={e => updP(i,'m3',e.target.value)} style={{ ...INP, color: '#2563eb', fontWeight: 600, textAlign: 'right' }} placeholder="0" /></td>
                           <td style={TD}><input type="number" step="any" value={p.fobUSD} onChange={e => updP(i,'fobUSD',e.target.value)} style={{ ...INP, color: '#2563eb', fontWeight: 600, textAlign: 'right' }} placeholder="0" /></td>
                           <td style={TD}><input type="number" step="any" value={p.gastosOrigenUSD} onChange={e => updP(i,'gastosOrigenUSD',e.target.value)} style={{ ...INP, color: n(p.gastosOrigenUSD) > 0 ? '#d97706' : '#94a3b8', fontWeight: n(p.gastosOrigenUSD) > 0 ? 700 : 400, textAlign: 'right' }} placeholder="0" /></td>
@@ -391,7 +390,7 @@ function OperationDetail({ op, onBack }) {
                   </tbody>
                   <tfoot>
                     <tr style={{ background: '#f1f5f9' }}>
-                      <td colSpan={3} style={{ ...TD, fontWeight: 700 }}>TOTAL</td>
+                      <td colSpan={2} style={{ ...TD, fontWeight: 700 }}>TOTAL</td>
                       <td style={{ ...TD, fontWeight: 700, textAlign: 'right' }}>{calc.totalM3.toFixed(2)} m³</td>
                       <td style={{ ...TD, fontWeight: 700, textAlign: 'right' }}>{fmtU(proveedores.reduce((s, p) => s + n(p.fobUSD), 0))}</td>
                       <td style={{ ...TD, fontWeight: 700, textAlign: 'right', color: '#d97706' }}>{fmtU(proveedores.reduce((s, p) => s + n(p.gastosOrigenUSD), 0))}</td>
@@ -419,10 +418,8 @@ function OperationDetail({ op, onBack }) {
                   <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#2563eb' }}>{fmtU(proveedores.reduce((s,p)=>s+n(p.fobUSD),0))}</p>
                 </div>
                 <div>
-                  <p style={LBL}>Puertos</p>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
-                    {[...new Set(proveedores.filter(p=>p.puertoOrigen).map(p=>p.puertoOrigen))].join(' · ') || '—'}
-                  </p>
+                  <p style={LBL}>Puerto de Origen</p>
+                  <input value={puertoOrigen} onChange={e => setPuertoOrigen(e.target.value)} style={{ ...INP, width: '160px', fontSize: '0.85rem', fontWeight: 600 }} placeholder="Ej: Shanghai" />
                 </div>
               </div>
               <button onClick={() => setMainTab('gastos')} style={{ padding: '0.55rem 1.1rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#2563eb', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
