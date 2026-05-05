@@ -70,15 +70,16 @@ const ESTADOS = [
 ];
 const estadoObj   = (e) => ESTADOS.find(s => s.label === e) || ESTADOS[0];
 const estadoColor = (e) => estadoObj(e).color;
-const CONTENEDORES = ['20 Pies', '40 Pies', '40HQ', 'LCL'];
+const CONTENEDORES = ['20 Pies', '40 Pies', '40HQ', 'Flat Rack', 'LCL'];
+const CONTAINER_M3 = { '20 Pies': 28, '40 Pies': 56, '40HQ': 76, 'Flat Rack': 76, 'LCL': null };
 const OPS_KEY = 'transtide-operaciones';
 
 const INIT_OPS = [
-  { id: 'franco-modulos', nombre: 'Franco Modulos 2 + varios',      contenedor: '40HQ',    bl: 'MAEU7546833339', eta: '22/03/2024', m3: 38.14, proveedores: 3, estado: 'Liquidado',    fecha: '15/03/2024' },
-  { id: 'agro-export',    nombre: 'Agro Export — Fertilizantes',    contenedor: '20 Pies', bl: 'HLCU4012981002', eta: '10/04/2024', m3: 22.5,  proveedores: 1, estado: 'En aduana',    fecha: '02/04/2024' },
-  { id: 'med-supply',     nombre: 'Med Supply — Insumos Médicos',   contenedor: '40HQ',    bl: '',               eta: '28/04/2024', m3: 55.0,  proveedores: 2, estado: 'Consolidando', fecha: '20/04/2024' },
+  { id: 'franco-modulos', nombre: 'Franco Modulos 2 + varios',      contenedor: '40HQ',    bl: 'MAEU7546833339', eta: '22/03/2024', proveedores: 3, estado: 'Liquidado',    fecha: '15/03/2024' },
+  { id: 'agro-export',    nombre: 'Agro Export — Fertilizantes',    contenedor: '20 Pies', bl: 'HLCU4012981002', eta: '10/04/2024', proveedores: 1, estado: 'En aduana',    fecha: '02/04/2024' },
+  { id: 'med-supply',     nombre: 'Med Supply — Insumos Médicos',   contenedor: '40HQ',    bl: '',               eta: '28/04/2024', proveedores: 2, estado: 'Consolidando', fecha: '20/04/2024' },
 ];
-const emptyOp = () => ({ id: '', nombre: '', contenedor: '40HQ', bl: '', eta: '', m3: '', proveedores: '', estado: 'Consolidando', fecha: '' });
+const emptyOp = () => ({ id: '', nombre: '', contenedor: '40HQ', bl: '', eta: '', proveedores: '', estado: 'Consolidando', fecha: '' });
 
 // ─── initial data (Franco Modulos) ───────────────────────────────────────────
 const FRANCO = {
@@ -180,6 +181,18 @@ function OperationsList({ onSelect }) {
   const [statusPop, setStatusPop] = useState(null); // op.id with open status picker
 
   const saveOps = (list) => { setOps(list); localStorage.setItem(OPS_KEY, JSON.stringify(list)); };
+
+  // Get occupied m³ from saved operation detail (sum of providers' m³)
+  const getOcupado = (opId) => {
+    try {
+      const d = typeof window !== 'undefined' && localStorage.getItem(`transtide-opdetail-${opId}`);
+      if (!d) return null;
+      const parsed = JSON.parse(d);
+      const provs = parsed?.proveedores || [];
+      const total = provs.reduce((s, p) => s + (parseFloat(p.m3) || 0), 0);
+      return total > 0 ? total : null;
+    } catch { return null; }
+  };
   const openNew  = () => { setForm(emptyOp()); setModal('new'); };
   const openEdit = (op, e) => { e.stopPropagation(); setForm({ ...op }); setModal(op); };
   const askDel   = (id, e) => { e.stopPropagation(); setConfirm(id); };
@@ -281,7 +294,15 @@ function OperationsList({ onSelect }) {
                 {[
                   ['N° BL',        op.bl        || '—', op.bl ? '#1e293b' : '#cbd5e1'],
                   ['Contenedor',   op.contenedor || '—', '#475569'],
-                  ['M³ Total',     op.m3 ? `${op.m3} m³` : '—', '#475569'],
+                  (() => {
+                    const cap = CONTAINER_M3[op.contenedor];
+                    const ocup = getOcupado(op.id);
+                    const label = 'M³';
+                    const val = cap
+                      ? `${ocup != null ? ocup.toFixed(1) : '—'} / ${cap} m³`
+                      : ocup != null ? `${ocup.toFixed(1)} m³` : '—';
+                    return [label, val, cap && ocup != null && ocup > cap * 0.9 ? '#dc2626' : '#475569'];
+                  })(),
                   ['Proveedores',  op.proveedores || '—', '#475569'],
                   ['ETA',          op.eta        || '—', op.eta ? '#059669' : '#cbd5e1'],
                 ].map(([k, v, vc]) => (
@@ -329,8 +350,11 @@ function OperationsList({ onSelect }) {
                 </select>
               </div>
               <div>
-                <label style={LBL}>M³ totales</label>
-                <input type="number" step="any" value={form.m3} onChange={e => setForm(f => ({ ...f, m3: e.target.value }))} style={INP2} placeholder="0" />
+                <label style={LBL}>M³ del contenedor</label>
+                <div style={{ ...INP2, background: '#f8fafc', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'default' }}>
+                  <span style={{ fontWeight: 700, color: '#1e293b' }}>{CONTAINER_M3[form.contenedor] ? `${CONTAINER_M3[form.contenedor]} m³` : 'Variable'}</span>
+                  <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>capacidad total</span>
+                </div>
               </div>
               <div>
                 <label style={LBL}>Fecha de alta</label>
