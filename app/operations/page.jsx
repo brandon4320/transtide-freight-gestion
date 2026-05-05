@@ -229,7 +229,7 @@ function OperationsList({ onSelect }) {
       <div style={{ display: 'grid', gap: '0.75rem' }}>
         {ops.map(op => {
           const color   = estadoColor(op.estado);
-          const canOpen = op.id === 'franco-modulos';
+          const canOpen = true;
           const est = estadoObj(op.estado);
           return (
             <div key={op.id}
@@ -410,17 +410,24 @@ function OperationDetail({ op, onBack }) {
     catch { return null; }
   };
 
-  const [naviera,    setNaviera]    = useState(() => { const d=loadD(); return d?.naviera?.length    ? d.naviera    : init(FRANCO.naviera);    });
-  const [terminal,   setTerminal]   = useState(() => { const d=loadD(); return d?.terminal?.length   ? d.terminal   : init(FRANCO.terminal);   });
-  const [aduana,     setAduana]     = useState(() => { const d=loadD(); return d?.aduana?.length     ? d.aduana     : init(FRANCO.aduana);     });
-  const [transporte, setTransporte] = useState(() => { const d=loadD(); return d?.transporte?.length ? d.transporte : init(FRANCO.transporte); });
-  const [despachante,setDespachante]= useState(() => { const d=loadD(); return d?.despachante?.length? d.despachante: init(FRANCO.despachante);});
-  const [admin,      setAdmin]      = useState(() => { const d=loadD(); return d?.admin?.length      ? d.admin      : init(FRANCO.admin);      });
-  const [fleteIntl,  setFleteIntl]  = useState(() => { const d=loadD(); return d?.fleteIntl?.length  ? d.fleteIntl  : init(FRANCO.fleteIntl);  });
+  const isFranco = op.id === 'franco-modulos';
+  const fallback = (key, francoVal, emptyVal) => {
+    const d = loadD();
+    if (d?.[key]?.length) return d[key];
+    return isFranco ? francoVal : emptyVal;
+  };
 
-  const [proveedores,  setProveedores]  = useState(() => { const d=loadD(); return d?.proveedores?.length ? d.proveedores : [...FRANCO.proveedores, newProv()]; });
-  const [cobrar,       setCobrar]       = useState(() => { const d=loadD(); return d?.cobrar?.length      ? d.cobrar      : [...FRANCO.cobrar, { tc:'', honorarios:true, despAdic:'' }]; });
-  const [puertoOrigen, setPuertoOrigen] = useState(() => { const d=loadD(); return d?.puertoOrigen ?? 'Shanghai'; });
+  const [naviera,    setNaviera]    = useState(() => fallback('naviera',    init(FRANCO.naviera),    [newRow()]));
+  const [terminal,   setTerminal]   = useState(() => fallback('terminal',   init(FRANCO.terminal),   [newRow()]));
+  const [aduana,     setAduana]     = useState(() => fallback('aduana',     init(FRANCO.aduana),     [newRow()]));
+  const [transporte, setTransporte] = useState(() => fallback('transporte', init(FRANCO.transporte), [newRow()]));
+  const [despachante,setDespachante]= useState(() => fallback('despachante',init(FRANCO.despachante),[newRow()]));
+  const [admin,      setAdmin]      = useState(() => fallback('admin',      init(FRANCO.admin),      [newRow()]));
+  const [fleteIntl,  setFleteIntl]  = useState(() => fallback('fleteIntl',  init(FRANCO.fleteIntl),  [newRow()]));
+
+  const [proveedores,  setProveedores]  = useState(() => { const d=loadD(); return d?.proveedores?.length ? d.proveedores : isFranco ? [...FRANCO.proveedores, newProv()] : [newProv()]; });
+  const [cobrar,       setCobrar]       = useState(() => { const d=loadD(); return d?.cobrar?.length      ? d.cobrar      : isFranco ? [...FRANCO.cobrar, { tc:'', honorarios:true, despAdic:'' }] : [{ tc:'', honorarios:false, despAdic:'' }]; });
+  const [puertoOrigen, setPuertoOrigen] = useState(() => { const d=loadD(); return d?.puertoOrigen ?? ''; });
   const [clientes,     setClientes]     = useState(MOCK_CLIENTES);
 
   // ── checklist: persist per operation in localStorage ──
@@ -428,8 +435,9 @@ function OperationDetail({ op, onBack }) {
   const [checked, setChecked] = useState(() => {
     try {
       const saved = typeof window !== 'undefined' && localStorage.getItem(CHECKLIST_KEY);
-      return saved ? new Set(JSON.parse(saved)) : new Set(FRANCO.checked);
-    } catch { return new Set(FRANCO.checked); }
+      if (saved) return new Set(JSON.parse(saved));
+      return isFranco ? new Set(FRANCO.checked) : new Set();
+    } catch { return isFranco ? new Set(FRANCO.checked) : new Set(); }
   });
   useEffect(() => {
     localStorage.setItem(CHECKLIST_KEY, JSON.stringify([...checked]));
