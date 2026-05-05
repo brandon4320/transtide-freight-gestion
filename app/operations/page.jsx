@@ -373,21 +373,30 @@ function OperationsList({ onSelect }) {
 
 // ─── OperationDetail ──────────────────────────────────────────────────────────
 function OperationDetail({ op, onBack }) {
-  const [mainTab,   setMainTab]   = useState('proveedores');
-  const [gastoTab,  setGastoTab]  = useState('naviera');
+  const [mainTab,     setMainTab]     = useState('proveedores');
+  const [gastoTab,    setGastoTab]    = useState('naviera');
+  const [isDirty,     setIsDirty]     = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
+  const [saveFlash,   setSaveFlash]   = useState(false);
 
   const init = (arr) => arr.length ? arr.map((r, i) => ({ ...r, id: i + 1 })) : [newRow()];
-  const [naviera,    setNaviera]    = useState(init(FRANCO.naviera));
-  const [terminal,   setTerminal]   = useState(init(FRANCO.terminal));
-  const [aduana,     setAduana]     = useState(init(FRANCO.aduana));
-  const [transporte, setTransporte] = useState(init(FRANCO.transporte));
-  const [despachante,setDespachante]= useState(init(FRANCO.despachante));
-  const [admin,      setAdmin]      = useState(init(FRANCO.admin));
-  const [fleteIntl,  setFleteIntl]  = useState(init(FRANCO.fleteIntl));
+  const DKEY = `transtide-opdetail-${op.id}`;
+  const loadD = () => {
+    try { const s = typeof window !== 'undefined' && localStorage.getItem(DKEY); return s ? JSON.parse(s) : null; }
+    catch { return null; }
+  };
 
-  const [proveedores,  setProveedores]  = useState([...FRANCO.proveedores, newProv()]);
-  const [cobrar,       setCobrar]       = useState([...FRANCO.cobrar, { tc: '', honorarios: true, despAdic: '' }]);
-  const [puertoOrigen, setPuertoOrigen] = useState('Shanghai');
+  const [naviera,    setNaviera]    = useState(() => { const d=loadD(); return d?.naviera?.length    ? d.naviera    : init(FRANCO.naviera);    });
+  const [terminal,   setTerminal]   = useState(() => { const d=loadD(); return d?.terminal?.length   ? d.terminal   : init(FRANCO.terminal);   });
+  const [aduana,     setAduana]     = useState(() => { const d=loadD(); return d?.aduana?.length     ? d.aduana     : init(FRANCO.aduana);     });
+  const [transporte, setTransporte] = useState(() => { const d=loadD(); return d?.transporte?.length ? d.transporte : init(FRANCO.transporte); });
+  const [despachante,setDespachante]= useState(() => { const d=loadD(); return d?.despachante?.length? d.despachante: init(FRANCO.despachante);});
+  const [admin,      setAdmin]      = useState(() => { const d=loadD(); return d?.admin?.length      ? d.admin      : init(FRANCO.admin);      });
+  const [fleteIntl,  setFleteIntl]  = useState(() => { const d=loadD(); return d?.fleteIntl?.length  ? d.fleteIntl  : init(FRANCO.fleteIntl);  });
+
+  const [proveedores,  setProveedores]  = useState(() => { const d=loadD(); return d?.proveedores?.length ? d.proveedores : [...FRANCO.proveedores, newProv()]; });
+  const [cobrar,       setCobrar]       = useState(() => { const d=loadD(); return d?.cobrar?.length      ? d.cobrar      : [...FRANCO.cobrar, { tc:'', honorarios:true, despAdic:'' }]; });
+  const [puertoOrigen, setPuertoOrigen] = useState(() => { const d=loadD(); return d?.puertoOrigen ?? 'Shanghai'; });
   const [clientes,     setClientes]     = useState(MOCK_CLIENTES);
 
   // ── checklist: persist per operation in localStorage ──
@@ -416,11 +425,24 @@ function OperationDetail({ op, onBack }) {
     return next;
   });
 
-  const upd  = (setter) => (i, f, v) => setter(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
-  const add  = (setter) => () => setter(p => [...p, newRow()]);
-  const rem  = (setter) => (i) => setter(p => p.filter((_, j) => j !== i));
-  const updP = (i, f, v) => setProveedores(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
-  const updC = (i, f, v) => setCobrar(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
+  // ── dirty-aware setters ──
+  const D = () => setIsDirty(true);
+  const upd  = (setter) => (i, f, v) => { setter(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r)); D(); };
+  const add  = (setter) => () => { setter(p => [...p, newRow()]); D(); };
+  const rem  = (setter) => (i) => { setter(p => p.filter((_, j) => j !== i)); D(); };
+  const updP = (i, f, v) => { setProveedores(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r)); D(); };
+  const updC = (i, f, v) => { setCobrar(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r)); D(); };
+
+  // ── save / navigate ──
+  const saveAll = () => {
+    localStorage.setItem(DKEY, JSON.stringify({ naviera, terminal, aduana, transporte, despachante, admin, fleteIntl, proveedores, cobrar, puertoOrigen }));
+    setIsDirty(false);
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 2200);
+  };
+  const handleBack     = () => { if (isDirty) setShowDiscard(true); else onBack(); };
+  const discardAndBack = () => { setIsDirty(false); setShowDiscard(false); onBack(); };
+  const saveAndBack    = () => { saveAll(); setShowDiscard(false); setTimeout(onBack, 50); };
 
   const calc = useMemo(() => {
     const tNav  = catTot(naviera);
@@ -491,7 +513,7 @@ function OperationDetail({ op, onBack }) {
 
       {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
+        <button onClick={handleBack} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
           ← Operaciones
         </button>
         <div style={{ height: '20px', width: '1px', background: '#e2e8f0' }} />
@@ -509,7 +531,22 @@ function OperationDetail({ op, onBack }) {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {/* save indicator */}
+          {saveFlash && (
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              ✓ Guardado
+            </span>
+          )}
+          {isDirty && !saveFlash && (
+            <span style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+              Cambios sin guardar
+            </span>
+          )}
+          <button onClick={saveAll} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1.1rem', borderRadius: '50px', border: 'none', background: isDirty ? '#059669' : '#e2e8f0', color: isDirty ? '#fff' : '#94a3b8', fontWeight: 700, fontSize: '0.8rem', cursor: isDirty ? 'pointer' : 'default', transition: 'all 0.2s' }}>
+            {saveFlash ? '✓ Guardado' : '↑ Guardar'}
+          </button>
           <div style={{ textAlign: 'right', background: '#f0fdf4', borderRadius: '10px', padding: '0.5rem 1rem' }}>
             <p style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Total General</p>
             <p style={{ fontSize: '1rem', fontWeight: 800, color: '#059669' }}>{fmtP(calc.totalGeneral)}</p>
@@ -601,7 +638,7 @@ function OperationDetail({ op, onBack }) {
                             ) : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
                           </td>
                           <td style={TD}>
-                            {p.nombre && <button onClick={() => { setProveedores(pr => pr.filter((_, j) => j !== i)); setCobrar(c => c.filter((_, j) => j !== i)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1' }}>×</button>}
+                            {p.nombre && <button onClick={() => { setProveedores(pr => pr.filter((_, j) => j !== i)); setCobrar(c => c.filter((_, j) => j !== i)); D(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1' }}>×</button>}
                           </td>
                         </tr>
                       );
@@ -619,7 +656,7 @@ function OperationDetail({ op, onBack }) {
                   </tfoot>
                 </table>
               </div>
-              <button onClick={() => { setProveedores(p => [...p, newProv()]); setCobrar(c => [...c, { tc: '', honorarios: true, despAdic: '' }]); }}
+              <button onClick={() => { setProveedores(p => [...p, newProv()]); setCobrar(c => [...c, { tc: '', honorarios: true, despAdic: '' }]); D(); }}
                 style={{ marginTop: '0.6rem', background: 'none', border: '1px dashed #d97706', borderRadius: '7px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, color: '#d97706', cursor: 'pointer' }}>
                 + Agregar proveedor
               </button>
@@ -638,7 +675,7 @@ function OperationDetail({ op, onBack }) {
                 </div>
                 <div>
                   <p style={LBL}>Puerto de Origen</p>
-                  <input value={puertoOrigen} onChange={e => setPuertoOrigen(e.target.value)} style={{ ...INP, width: '160px', fontSize: '0.85rem', fontWeight: 600 }} placeholder="Ej: Shanghai" />
+                  <input value={puertoOrigen} onChange={e => { setPuertoOrigen(e.target.value); D(); }} style={{ ...INP, width: '160px', fontSize: '0.85rem', fontWeight: 600 }} placeholder="Ej: Shanghai" />
                 </div>
               </div>
               <button onClick={() => setMainTab('gastos')} style={{ padding: '0.55rem 1.1rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#2563eb', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
@@ -956,6 +993,30 @@ function OperationDetail({ op, onBack }) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Discard modal ── */}
+      {showDiscard && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '400px', margin: '1rem', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', fontSize: '1.5rem' }}>⚠️</div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', textAlign: 'center', marginBottom: '0.5rem' }}>Cambios sin guardar</h3>
+            <p style={{ fontSize: '0.82rem', color: '#64748b', textAlign: 'center', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Tenés cambios sin guardar en esta operación.<br/>¿Qué querés hacer antes de salir?
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={discardAndBack} style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: '1px solid #fee2e2', background: '#fff', color: '#dc2626', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+                Descartar cambios
+              </button>
+              <button onClick={saveAndBack} style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: '#059669', color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+                Guardar y salir
+              </button>
+            </div>
+            <button onClick={() => setShowDiscard(false)} style={{ display: 'block', width: '100%', marginTop: '0.6rem', padding: '0.45rem', borderRadius: '8px', border: 'none', background: 'transparent', color: '#94a3b8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
+              Cancelar (seguir editando)
+            </button>
           </div>
         </div>
       )}
