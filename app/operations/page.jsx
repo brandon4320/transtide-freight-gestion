@@ -55,12 +55,23 @@ const FASES = [
   { id: 3, label: 'Logística y Cierre',   color: '#059669', bg: '#f0fdf4', badge: '#bbf7d0' },
 ];
 
-// ─── mock operations list ─────────────────────────────────────────────────────
-const MOCK_OPS = [
-  { id: 'franco-modulos', nombre: 'Franco Modulos 2 + varios', contenedor: '40HQ', m3: 38.14, proveedores: 3, estado: 'Liquidada', fecha: '15/03/2024', color: '#10b981' },
-  { id: 'agro-export',    nombre: 'Agro Export — Fertilizantes',   contenedor: '20 Pies', m3: 22.5,  proveedores: 1, estado: 'En curso',  fecha: '02/04/2024', color: '#f59e0b' },
-  { id: 'med-supply',     nombre: 'Med Supply — Insumos Médicos',  contenedor: '40HQ',   m3: 55.0,  proveedores: 2, estado: 'Pendiente', fecha: '20/04/2024', color: '#ef4444' },
+// ─── operations list data ─────────────────────────────────────────────────────
+const ESTADOS = [
+  { label: 'Pendiente',  color: '#ef4444' },
+  { label: 'En curso',   color: '#f59e0b' },
+  { label: 'Liquidada',  color: '#10b981' },
+  { label: 'Cancelada',  color: '#94a3b8' },
 ];
+const estadoColor = (e) => ESTADOS.find(s => s.label === e)?.color || '#94a3b8';
+const CONTENEDORES = ['20 Pies', '40 Pies', '40HQ', 'LCL'];
+const OPS_KEY = 'transtide-operaciones';
+
+const INIT_OPS = [
+  { id: 'franco-modulos', nombre: 'Franco Modulos 2 + varios', contenedor: '40HQ',    bl: 'MAEU7546833339', eta: '22/03/2024', m3: 38.14, proveedores: 3, estado: 'Liquidada', fecha: '15/03/2024' },
+  { id: 'agro-export',    nombre: 'Agro Export — Fertilizantes',   contenedor: '20 Pies', bl: 'HLCU4012981002', eta: '10/04/2024', m3: 22.5,  proveedores: 1, estado: 'En curso',  fecha: '02/04/2024' },
+  { id: 'med-supply',     nombre: 'Med Supply — Insumos Médicos',  contenedor: '40HQ',    bl: '',               eta: '28/04/2024', m3: 55.0,  proveedores: 2, estado: 'Pendiente', fecha: '20/04/2024' },
+];
+const emptyOp = () => ({ id: '', nombre: '', contenedor: '40HQ', bl: '', eta: '', m3: '', proveedores: '', estado: 'Pendiente', fecha: '' });
 
 // ─── initial data (Franco Modulos) ───────────────────────────────────────────
 const FRANCO = {
@@ -153,46 +164,172 @@ function InvoiceTable({ rows, onUpdate, onAdd, onRemove, accentColor = '#2563eb'
 
 // ─── OperationsList ───────────────────────────────────────────────────────────
 function OperationsList({ onSelect }) {
+  const [ops,     setOps]     = useState(() => {
+    try { const s = typeof window !== 'undefined' && localStorage.getItem(OPS_KEY); return s ? JSON.parse(s) : INIT_OPS; } catch { return INIT_OPS; }
+  });
+  const [modal,   setModal]   = useState(null); // null | 'new' | opObj
+  const [form,    setForm]    = useState(emptyOp());
+  const [confirm, setConfirm] = useState(null); // id to delete
+
+  const saveOps = (list) => { setOps(list); localStorage.setItem(OPS_KEY, JSON.stringify(list)); };
+  const openNew  = () => { setForm(emptyOp()); setModal('new'); };
+  const openEdit = (op, e) => { e.stopPropagation(); setForm({ ...op }); setModal(op); };
+  const askDel   = (id, e) => { e.stopPropagation(); setConfirm(id); };
+
+  const submit = () => {
+    if (!form.nombre.trim()) return;
+    if (modal === 'new') {
+      saveOps([...ops, { ...form, id: 'op-' + Date.now() }]);
+    } else {
+      saveOps(ops.map(o => o.id === modal.id ? { ...form, id: modal.id } : o));
+    }
+    setModal(null);
+  };
+  const remove = (id) => { saveOps(ops.filter(o => o.id !== id)); setConfirm(null); };
+
+  const INP2 = { ...INP, padding: '0.5rem 0.75rem', boxSizing: 'border-box' };
+  const SEL  = { ...INP2, cursor: 'pointer', appearance: 'auto' };
+
   return (
     <div>
+      {/* header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.2rem' }}>Operaciones</h2>
-          <p style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Seleccioná una operación para ver el detalle de costos</p>
+          <p style={{ fontSize: '0.82rem', color: '#94a3b8' }}>{ops.length} operaciones registradas</p>
         </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: '0.82rem' }}>
+        <button onClick={openNew} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: '0.82rem' }}>
           + Nueva operación
         </button>
       </div>
+
+      {/* list */}
       <div style={{ display: 'grid', gap: '0.75rem' }}>
-        {MOCK_OPS.map(op => (
-          <div key={op.id} onClick={() => op.id === 'franco-modulos' && onSelect(op)}
-            style={{ ...CARD, display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 1fr auto', alignItems: 'center', gap: '1.5rem', cursor: op.id === 'franco-modulos' ? 'pointer' : 'default', opacity: op.id !== 'franco-modulos' ? 0.55 : 1, transition: 'box-shadow 0.15s' }}
-            onMouseEnter={e => op.id === 'franco-modulos' && (e.currentTarget.style.boxShadow = '0 8px 30px rgba(37,99,235,0.12)')}
-            onMouseLeave={e => (e.currentTarget.style.boxShadow = CARD.boxShadow)}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: op.color, flexShrink: 0 }} />
-              <div>
-                <p style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.92rem' }}>{op.nombre}</p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>{op.fecha}</p>
+        {ops.map(op => {
+          const color   = estadoColor(op.estado);
+          const canOpen = op.id === 'franco-modulos';
+          return (
+            <div key={op.id}
+              onClick={() => canOpen && onSelect(op)}
+              style={{ ...CARD, cursor: canOpen ? 'pointer' : 'default', transition: 'box-shadow 0.15s' }}
+              onMouseEnter={e => canOpen && (e.currentTarget.style.boxShadow = '0 8px 30px rgba(37,99,235,0.12)')}
+              onMouseLeave={e => (e.currentTarget.style.boxShadow = CARD.boxShadow)}
+            >
+              {/* row 1: nombre + estado + actions */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                  <div>
+                    <p style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>{op.nombre}</p>
+                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '1px' }}>Alta: {op.fecha || '—'}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ display: 'inline-flex', padding: '0.22rem 0.7rem', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700, background: color + '20', color }}>
+                    {op.estado}
+                  </span>
+                  {canOpen && (
+                    <button onClick={() => onSelect(op)} style={{ padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', background: '#eff6ff', color: '#2563eb', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
+                      Ver →
+                    </button>
+                  )}
+                  <button onClick={(e) => openEdit(op, e)} style={{ padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+                    ✏ Editar
+                  </button>
+                  <button onClick={(e) => askDel(op.id, e)} style={{ padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fff', color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* row 2: metadata pills */}
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingTop: '0.6rem', borderTop: '1px solid #f1f5f9' }}>
+                {[
+                  ['N° BL',        op.bl        || '—', op.bl ? '#1e293b' : '#cbd5e1'],
+                  ['Contenedor',   op.contenedor || '—', '#475569'],
+                  ['M³ Total',     op.m3 ? `${op.m3} m³` : '—', '#475569'],
+                  ['Proveedores',  op.proveedores || '—', '#475569'],
+                  ['ETA',          op.eta        || '—', op.eta ? '#059669' : '#cbd5e1'],
+                ].map(([k, v, vc]) => (
+                  <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{k}</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: vc }}>{v}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div><p style={LBL}>Contenedor</p><p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{op.contenedor}</p></div>
-            <div><p style={LBL}>M³ Total</p><p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{op.m3} m³</p></div>
-            <div><p style={LBL}>Proveedores</p><p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>{op.proveedores}</p></div>
-            <div>
-              <span style={{ display: 'inline-flex', padding: '0.2rem 0.65rem', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700, background: op.color + '20', color: op.color }}>
-                {op.estado}
-              </span>
-            </div>
-            {op.id === 'franco-modulos'
-              ? <button style={{ padding: '0.4rem 0.85rem', borderRadius: '8px', border: 'none', background: '#eff6ff', color: '#2563eb', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>Ver →</button>
-              : <div style={{ width: '60px' }} />
-            }
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* ── Modal nueva / editar operación ── */}
+      {modal !== null && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setModal(null)}>
+          <div style={{ ...CARD, width: '100%', maxWidth: '520px', margin: '1rem', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b' }}>{modal === 'new' ? 'Nueva operación' : 'Editar operación'}</h3>
+              <button onClick={() => setModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1.3rem', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={LBL}>Nombre de la operación</label>
+                <input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} style={INP2} placeholder="Ej: Franco Modulos 2 + varios" />
+              </div>
+              <div>
+                <label style={LBL}>N° BL</label>
+                <input value={form.bl} onChange={e => setForm(f => ({ ...f, bl: e.target.value }))} style={INP2} placeholder="Ej: MAEU7546833339" />
+              </div>
+              <div>
+                <label style={LBL}>Estado</label>
+                <select value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))} style={SEL}>
+                  {ESTADOS.map(s => <option key={s.label} value={s.label}>{s.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={LBL}>Contenedor</label>
+                <select value={form.contenedor} onChange={e => setForm(f => ({ ...f, contenedor: e.target.value }))} style={SEL}>
+                  {CONTENEDORES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={LBL}>M³ totales</label>
+                <input type="number" step="any" value={form.m3} onChange={e => setForm(f => ({ ...f, m3: e.target.value }))} style={INP2} placeholder="0" />
+              </div>
+              <div>
+                <label style={LBL}>Fecha de alta</label>
+                <input type="date" value={form.fecha?.split('/').reverse().join('-') || ''} onChange={e => { const [y,m,d] = e.target.value.split('-'); setForm(f => ({ ...f, fecha: `${d}/${m}/${y}` })); }} style={INP2} />
+              </div>
+              <div>
+                <label style={LBL}>ETA (Fecha estimada de llegada)</label>
+                <input type="date" value={form.eta?.split('/').reverse().join('-') || ''} onChange={e => { const [y,m,d] = e.target.value.split('-'); setForm(f => ({ ...f, eta: `${d}/${m}/${y}` })); }} style={INP2} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
+              <button onClick={() => setModal(null)} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={submit} style={{ padding: '0.5rem 1.2rem', borderRadius: '8px', border: 'none', background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+                {modal === 'new' ? 'Crear operación' : 'Guardar cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm delete ── */}
+      {confirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setConfirm(null)}>
+          <div style={{ ...CARD, width: '100%', maxWidth: '360px', margin: '1rem', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </div>
+            <p style={{ fontWeight: 700, color: '#1e293b', marginBottom: '0.4rem' }}>¿Eliminar operación?</p>
+            <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '1.25rem' }}>Esta acción no se puede deshacer.</p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button onClick={() => setConfirm(null)} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => remove(confirm)} style={{ padding: '0.5rem 1.2rem', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
