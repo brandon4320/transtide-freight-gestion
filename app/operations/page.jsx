@@ -56,22 +56,29 @@ const FASES = [
 ];
 
 // ─── operations list data ─────────────────────────────────────────────────────
+// Estados del flujo real de importación (en orden cronológico)
 const ESTADOS = [
-  { label: 'Pendiente',  color: '#ef4444' },
-  { label: 'En curso',   color: '#f59e0b' },
-  { label: 'Liquidada',  color: '#10b981' },
-  { label: 'Cancelada',  color: '#94a3b8' },
+  { label: 'Consolidando',      icon: '📦', color: '#64748b', bg: '#f1f5f9',  desc: 'Carga en preparación en origen' },
+  { label: 'En tránsito',       icon: '🚢', color: '#2563eb', bg: '#eff6ff',  desc: 'Contenedor en el mar' },
+  { label: 'Arribado',          icon: '⚓', color: '#0891b2', bg: '#ecfeff',  desc: 'Llegó al puerto de destino' },
+  { label: 'En aduana',         icon: '📋', color: '#d97706', bg: '#fffbeb',  desc: 'Proceso de desaduanización' },
+  { label: 'Listo p/ retiro',   icon: '✅', color: '#ea580c', bg: '#fff7ed',  desc: 'Canal verde / libre para retirar' },
+  { label: 'En tránsito local', icon: '🚛', color: '#7c3aed', bg: '#f5f3ff',  desc: 'Flete en camino al destino final' },
+  { label: 'Entregado',         icon: '🏁', color: '#059669', bg: '#f0fdf4',  desc: 'Mercadería en destino final' },
+  { label: 'Liquidado',         icon: '💰', color: '#065f46', bg: '#ecfdf5',  desc: 'Costos cerrados y cobrados' },
+  { label: 'Cancelado',         icon: '✕',  color: '#94a3b8', bg: '#f8fafc',  desc: 'Operación cancelada' },
 ];
-const estadoColor = (e) => ESTADOS.find(s => s.label === e)?.color || '#94a3b8';
+const estadoObj   = (e) => ESTADOS.find(s => s.label === e) || ESTADOS[0];
+const estadoColor = (e) => estadoObj(e).color;
 const CONTENEDORES = ['20 Pies', '40 Pies', '40HQ', 'LCL'];
 const OPS_KEY = 'transtide-operaciones';
 
 const INIT_OPS = [
-  { id: 'franco-modulos', nombre: 'Franco Modulos 2 + varios', contenedor: '40HQ',    bl: 'MAEU7546833339', eta: '22/03/2024', m3: 38.14, proveedores: 3, estado: 'Liquidada', fecha: '15/03/2024' },
-  { id: 'agro-export',    nombre: 'Agro Export — Fertilizantes',   contenedor: '20 Pies', bl: 'HLCU4012981002', eta: '10/04/2024', m3: 22.5,  proveedores: 1, estado: 'En curso',  fecha: '02/04/2024' },
-  { id: 'med-supply',     nombre: 'Med Supply — Insumos Médicos',  contenedor: '40HQ',    bl: '',               eta: '28/04/2024', m3: 55.0,  proveedores: 2, estado: 'Pendiente', fecha: '20/04/2024' },
+  { id: 'franco-modulos', nombre: 'Franco Modulos 2 + varios',      contenedor: '40HQ',    bl: 'MAEU7546833339', eta: '22/03/2024', m3: 38.14, proveedores: 3, estado: 'Liquidado',    fecha: '15/03/2024' },
+  { id: 'agro-export',    nombre: 'Agro Export — Fertilizantes',    contenedor: '20 Pies', bl: 'HLCU4012981002', eta: '10/04/2024', m3: 22.5,  proveedores: 1, estado: 'En aduana',    fecha: '02/04/2024' },
+  { id: 'med-supply',     nombre: 'Med Supply — Insumos Médicos',   contenedor: '40HQ',    bl: '',               eta: '28/04/2024', m3: 55.0,  proveedores: 2, estado: 'Consolidando', fecha: '20/04/2024' },
 ];
-const emptyOp = () => ({ id: '', nombre: '', contenedor: '40HQ', bl: '', eta: '', m3: '', proveedores: '', estado: 'Pendiente', fecha: '' });
+const emptyOp = () => ({ id: '', nombre: '', contenedor: '40HQ', bl: '', eta: '', m3: '', proveedores: '', estado: 'Consolidando', fecha: '' });
 
 // ─── initial data (Franco Modulos) ───────────────────────────────────────────
 const FRANCO = {
@@ -167,14 +174,16 @@ function OperationsList({ onSelect }) {
   const [ops,     setOps]     = useState(() => {
     try { const s = typeof window !== 'undefined' && localStorage.getItem(OPS_KEY); return s ? JSON.parse(s) : INIT_OPS; } catch { return INIT_OPS; }
   });
-  const [modal,   setModal]   = useState(null); // null | 'new' | opObj
-  const [form,    setForm]    = useState(emptyOp());
-  const [confirm, setConfirm] = useState(null); // id to delete
+  const [modal,     setModal]     = useState(null); // null | 'new' | opObj
+  const [form,      setForm]      = useState(emptyOp());
+  const [confirm,   setConfirm]   = useState(null); // id to delete
+  const [statusPop, setStatusPop] = useState(null); // op.id with open status picker
 
   const saveOps = (list) => { setOps(list); localStorage.setItem(OPS_KEY, JSON.stringify(list)); };
   const openNew  = () => { setForm(emptyOp()); setModal('new'); };
   const openEdit = (op, e) => { e.stopPropagation(); setForm({ ...op }); setModal(op); };
   const askDel   = (id, e) => { e.stopPropagation(); setConfirm(id); };
+  const setEstado = (id, estado) => { saveOps(ops.map(o => o.id === id ? { ...o, estado } : o)); setStatusPop(null); };
 
   const submit = () => {
     if (!form.nombre.trim()) return;
@@ -208,9 +217,10 @@ function OperationsList({ onSelect }) {
         {ops.map(op => {
           const color   = estadoColor(op.estado);
           const canOpen = op.id === 'franco-modulos';
+          const est = estadoObj(op.estado);
           return (
             <div key={op.id}
-              onClick={() => canOpen && onSelect(op)}
+              onClick={() => { if (statusPop === op.id) return; canOpen && onSelect(op); }}
               style={{ ...CARD, cursor: canOpen ? 'pointer' : 'default', transition: 'box-shadow 0.15s' }}
               onMouseEnter={e => canOpen && (e.currentTarget.style.boxShadow = '0 8px 30px rgba(37,99,235,0.12)')}
               onMouseLeave={e => (e.currentTarget.style.boxShadow = CARD.boxShadow)}
@@ -225,11 +235,35 @@ function OperationsList({ onSelect }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ display: 'inline-flex', padding: '0.22rem 0.7rem', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700, background: color + '20', color }}>
-                    {op.estado}
-                  </span>
+
+                  {/* ── status badge — click to change ── */}
+                  <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setStatusPop(statusPop === op.id ? null : op.id)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.75rem', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700, background: est.bg, color: est.color, border: `1.5px solid ${est.color}40`, cursor: 'pointer' }}>
+                      <span>{est.icon}</span> {est.label} <span style={{ fontSize: '0.6rem', opacity: 0.6 }}>▾</span>
+                    </button>
+
+                    {/* dropdown */}
+                    {statusPop === op.id && (
+                      <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', background: '#fff', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.14)', border: '1px solid #e2e8f0', zIndex: 200, minWidth: '230px', overflow: 'hidden' }}>
+                        <p style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0.6rem 0.85rem 0.3rem' }}>Cambiar estado</p>
+                        {ESTADOS.map((s, idx) => (
+                          <button key={s.label} onClick={() => setEstado(op.id, s.label)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.85rem', border: 'none', background: op.estado === s.label ? s.bg : 'transparent', cursor: 'pointer', borderBottom: idx < ESTADOS.length - 1 ? '1px solid #f8fafc' : 'none' }}>
+                            <span>{s.icon}</span>
+                            <div style={{ textAlign: 'left' }}>
+                              <p style={{ fontSize: '0.78rem', fontWeight: op.estado === s.label ? 700 : 500, color: op.estado === s.label ? s.color : '#374151' }}>{s.label}</p>
+                              <p style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '1px' }}>{s.desc}</p>
+                            </div>
+                            {op.estado === s.label && <span style={{ marginLeft: 'auto', color: s.color, fontSize: '0.8rem' }}>✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {canOpen && (
-                    <button onClick={() => onSelect(op)} style={{ padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', background: '#eff6ff', color: '#2563eb', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
+                    <button onClick={(e) => { e.stopPropagation(); onSelect(op); }} style={{ padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', background: '#eff6ff', color: '#2563eb', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
                       Ver →
                     </button>
                   )}
@@ -262,6 +296,9 @@ function OperationsList({ onSelect }) {
         })}
       </div>
 
+      {/* click-away to close status popup */}
+      {statusPop && <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setStatusPop(null)} />}
+
       {/* ── Modal nueva / editar operación ── */}
       {modal !== null && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setModal(null)}>
@@ -282,7 +319,7 @@ function OperationsList({ onSelect }) {
               <div>
                 <label style={LBL}>Estado</label>
                 <select value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))} style={SEL}>
-                  {ESTADOS.map(s => <option key={s.label} value={s.label}>{s.label}</option>)}
+                  {ESTADOS.map(s => <option key={s.label} value={s.label}>{s.icon} {s.label}</option>)}
                 </select>
               </div>
               <div>
