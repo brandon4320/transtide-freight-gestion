@@ -5,15 +5,31 @@ export const metadata = {
   description: 'Sistema interno de gestión logística e importaciones.',
 };
 
+// Montserrat Black via Google Fonts (sidebar logo)
+export const links = [{ rel: 'preconnect', href: 'https://fonts.googleapis.com' }, { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap' }];
+
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap" rel="stylesheet" />
+      </head>
       <body>
         <div className="app-container">
           <aside className="sidebar">
-            <div className="sidebar-logo">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-              TRANSTIDE
+            <div className="sidebar-logo" style={{ gap: 0, paddingBottom: '0.25rem' }}>
+              <span style={{
+                fontFamily: "'Montserrat', -apple-system, 'Segoe UI', system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: '1.35rem',
+                letterSpacing: '0.04em',
+                color: '#0f172a',
+                lineHeight: 1,
+              }}>
+                TRANSTIDE<span style={{ color: '#f97316' }}>.</span>
+              </span>
             </div>
             
             <nav style={{ display: 'flex', flexDirection: 'column' }}>
