@@ -18,14 +18,13 @@ export default function RootLayout({ children }) {
 
           {/* ── Sidebar ── */}
           <aside className="sidebar">
-            {/* Logo */}
             <div className="sidebar-logo">
               <span style={{
                 fontFamily: "'Inter', sans-serif",
                 fontWeight: 900,
                 fontSize: '1.2rem',
                 letterSpacing: '0.06em',
-                color: '#e8edf5',
+                color: '#0f172a',
                 lineHeight: 1,
               }}>
                 TRANSTIDE<span style={{ color: '#ea580c' }}>.</span>
@@ -85,8 +84,7 @@ export default function RootLayout({ children }) {
                 Cotizador
               </a>
 
-              {/* Spacer + Settings */}
-              <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
                 <a href="/settings" className="nav-item">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3"/>
