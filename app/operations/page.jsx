@@ -500,12 +500,13 @@ function OperationDetail({ op, onBack }) {
         const tributoPesos = Math.round(n(p.tributosUSD) * n(p.tributosTC));
         const costoFinal   = prorPesos + tributoPesos;
         const cb           = cobrar[i] || { tc: 0, honorarios: false, despAdic: 0 };
-        const gastosUSD    = n(cb.tc) > 0 ? Math.round((costoFinal / n(cb.tc)) * 100) / 100 : 0;
+        const tcUsed       = n(cb.tc) > 0 ? n(cb.tc) : n(p.tributosTC);
+        const gastosUSD    = tcUsed > 0 ? Math.round((costoFinal / tcUsed) * 100) / 100 : 0;
         const origenUSD    = n(p.gastosOrigenUSD);
         const fobPlus      = n(p.fobUSD) + gastosUSD + origenUSD;
         const honorarios   = cb.honorarios ? Math.round(fobPlus * 0.04 * 100) / 100 : 0;
         const totalUSD     = Math.round((gastosUSD + origenUSD + honorarios + n(cb.despAdic)) * 100) / 100;
-        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', clienteNombre, m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, fobPlus, honorarios, totalUSD, cb };
+        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', clienteNombre, m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, fobPlus, honorarios, totalUSD, tcUsed, cb };
       });
 
     return {
@@ -929,103 +930,152 @@ function OperationDetail({ op, onBack }) {
       {/* ══ TAB: A COBRAR ════════════════════════════════════════════════════ */}
       {mainTab === 'acobrar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={CARD}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              </div>
-              <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>A Cobrar por proveedor — todo en USD</p>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th colSpan={4} style={{ ...TH, background: '#fff4ee', color: '#ea580c', textAlign: 'center', padding: '0.5rem' }}>① Gastos asignados</th>
-                    <th colSpan={1} style={{ ...TH, background: '#fff7ed', color: '#d97706', textAlign: 'center', padding: '0.5rem' }}>② Gs. Origen</th>
-                    <th colSpan={3} style={{ ...TH, background: '#f5f3ff', color: '#7c3aed', textAlign: 'center', padding: '0.5rem' }}>③ Honorarios (4%)</th>
-                    <th colSpan={2} style={{ ...TH, background: '#f0fdf4', color: '#059669', textAlign: 'center', padding: '0.5rem' }}>④ Despachante</th>
-                    <th style={{ ...TH, background: '#1e293b', color: '#fff', textAlign: 'center', padding: '0.5rem', borderRadius: '0 8px 0 0' }}>TOTAL USD</th>
-                  </tr>
-                  <tr style={{ background: '#f8fafc' }}>
-                    {['Proveedor','Tipo','m³','T.C. conv.','Gastos $ → USD','Gs. Origen USD','FOB USD','FOB + Todo','Honor. 4%','Desp. Adic. USD','Activo',''].map(h => (
-                      <th key={h} style={{ ...TH }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {calc.perProv.map((p, i) => (
-                    <tr key={p.nombre} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                      <td style={{ ...TD, fontWeight: 700 }}>{p.nombre}</td>
-                      <td style={TD}>
-                        <span style={{ ...tipoStyle(p.tipo), display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.5rem', borderRadius: '50px', fontSize: '0.68rem', fontWeight: 700, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {p.tipo === 'Propio' ? '📦 Propio' : `🤝 ${p.clienteNombre || 'Cliente'}`}
-                        </span>
-                      </td>
-                      <td style={{ ...TD, textAlign: 'right', color: '#64748b' }}>{p.m3}</td>
-                      <td style={TD}>
-                        <input type="number" step="any" value={cobrar[i]?.tc ?? ''} onChange={e => updC(i,'tc',e.target.value)}
-                          style={{ ...INP, width: '85px', color: '#ea580c', fontWeight: 600, textAlign: 'right' }} placeholder="TC" />
-                      </td>
-                      <td style={{ ...TD, textAlign: 'right', fontWeight: 600, color: '#ea580c' }}>{fmtU(p.gastosUSD)}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontWeight: 600, color: p.origenUSD > 0 ? '#d97706' : '#cbd5e1' }}>{p.origenUSD > 0 ? fmtU(p.origenUSD) : '—'}</td>
-                      <td style={{ ...TD, textAlign: 'right', color: '#64748b' }}>{fmtU(p.fobUSD)}</td>
-                      <td style={{ ...TD, textAlign: 'right', color: '#64748b' }}>{fmtU(p.fobPlus)}</td>
-                      <td style={{ ...TD, textAlign: 'right', color: '#7c3aed', fontWeight: 600 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                          <button onClick={() => updC(i,'honorarios',!cobrar[i]?.honorarios)}
-                            style={{ padding: '0.15rem 0.55rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, background: cobrar[i]?.honorarios ? '#ede9fe' : '#f1f5f9', color: cobrar[i]?.honorarios ? '#7c3aed' : '#94a3b8' }}>
-                            {cobrar[i]?.honorarios ? 'SÍ' : 'NO'}
-                          </button>
-                          {cobrar[i]?.honorarios && <span>{fmtU(p.honorarios)}</span>}
-                        </div>
-                      </td>
-                      <td style={TD}>
-                        <input type="number" step="any" value={cobrar[i]?.despAdic ?? ''} onChange={e => updC(i,'despAdic',e.target.value)}
-                          style={{ ...INP, width: '95px', color: '#ea580c', fontWeight: 600, textAlign: 'right' }} placeholder="0" />
-                      </td>
-                      <td style={TD}>
-                        <span style={{ fontSize: '0.68rem', background: '#f0fdf4', color: '#059669', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700 }}>✓</span>
-                      </td>
-                      <td style={{ ...TD, fontWeight: 800, color: '#7c3aed', fontSize: '0.9rem', textAlign: 'right' }}>{fmtU(p.totalUSD)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: '#1e293b' }}>
-                    <td colSpan={4} style={{ ...TD, color: '#fff', fontWeight: 700, borderBottom: 'none' }}>TOTAL</td>
-                    <td style={{ ...TD, color: '#93c5fd', fontWeight: 700, textAlign: 'right', borderBottom: 'none' }}>{fmtU(calc.perProv.reduce((s,p)=>s+p.gastosUSD,0))}</td>
-                    <td style={{ ...TD, color: '#fdba74', fontWeight: 700, textAlign: 'right', borderBottom: 'none' }}>{fmtU(calc.perProv.reduce((s,p)=>s+p.origenUSD,0))}</td>
-                    <td style={{ ...TD, color: '#94a3b8', textAlign: 'right', borderBottom: 'none' }}>{fmtU(calc.perProv.reduce((s,p)=>s+p.fobUSD,0))}</td>
-                    <td style={{ ...TD, color: '#94a3b8', textAlign: 'right', borderBottom: 'none' }}>{fmtU(calc.perProv.reduce((s,p)=>s+p.fobPlus,0))}</td>
-                    <td style={{ ...TD, color: '#c4b5fd', fontWeight: 700, textAlign: 'right', borderBottom: 'none' }}>{fmtU(calc.perProv.reduce((s,p)=>s+p.honorarios,0))}</td>
-                    <td style={{ ...TD, color: '#94a3b8', textAlign: 'right', borderBottom: 'none' }}>{fmtU(calc.perProv.reduce((s,p)=>s+n(cobrar[calc.perProv.indexOf(p)]?.despAdic),0))}</td>
-                    <td style={{ borderBottom: 'none' }} />
-                    <td style={{ ...TD, fontWeight: 800, color: '#fff', fontSize: '1rem', textAlign: 'right', borderBottom: 'none' }}>{fmtU(calc.totalACobrar)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
 
-          {/* summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            {calc.perProv.map((p, i) => (
-              <div key={p.nombre} style={{ ...CARD, borderTop: `3px solid ${p.tipo === 'Propio' ? '#059669' : '#7c3aed'}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{p.nombre}</p>
-                  <span style={{ ...tipoStyle(p.tipo), fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '50px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.tipo === 'Propio' ? '📦 Propio' : `🤝 ${p.clienteNombre || 'Cliente'}`}
-                  </span>
-                </div>
-                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: p.tipo === 'Propio' ? '#059669' : '#7c3aed', lineHeight: 1, marginBottom: '0.4rem' }}>{fmtU(p.totalUSD)}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
-                  {[['Gastos', fmtU(p.gastosUSD)], ['Gs. Origen', fmtU(p.origenUSD)], ['FOB', fmtU(p.fobUSD)], ['Honor.', fmtU(p.honorarios)]].map(([l,v]) => (
-                    <div key={l}><p style={{ fontSize: '0.62rem', color: '#94a3b8' }}>{l}</p><p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>{v}</p></div>
-                  ))}
-                </div>
+          {/* ── Barra resumen superior ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+            {[
+              ['Total a Cobrar', fmtU(calc.totalACobrar), '#7c3aed', '#f5f3ff'],
+              ['Gastos en USD', fmtU(calc.perProv.reduce((s,p)=>s+p.gastosUSD,0)), '#ea580c', '#fff4ee'],
+              ['Gs. Origen USD', fmtU(calc.perProv.reduce((s,p)=>s+p.origenUSD,0)), '#d97706', '#fff7ed'],
+              ['Honorarios', fmtU(calc.perProv.reduce((s,p)=>s+p.honorarios,0)), '#059669', '#f0fdf4'],
+            ].map(([lbl, val, color, bg]) => (
+              <div key={lbl} style={{ ...CARD, background: bg, border: `1px solid ${color}20`, padding: '1rem' }}>
+                <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>{lbl}</p>
+                <p style={{ fontSize: '1.3rem', fontWeight: 800, color, lineHeight: 1 }}>{val}</p>
               </div>
             ))}
           </div>
+
+          {/* ── Aviso si falta TC ── */}
+          {calc.perProv.some(p => p.tcUsed === 0) && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1rem' }}>⚠️</span>
+              <p style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 600 }}>
+                Algunos proveedores no tienen T.C. cargado en VEP/Tributos. Ingresá el T.C. directamente en cada tarjeta o cargalo en la tabla de VEP Aduana.
+              </p>
+            </div>
+          )}
+
+          {/* ── Tarjetas por proveedor ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+            {calc.perProv.map((p, i) => {
+              const color = p.tipo === 'Propio' ? '#059669' : '#7c3aed';
+              const bg    = p.tipo === 'Propio' ? '#f0fdf4' : '#f5f3ff';
+              const tcOk  = p.tcUsed > 0;
+              return (
+                <div key={p.nombre} style={{ ...CARD, borderLeft: `4px solid ${color}`, padding: '1.25rem' }}>
+
+                  {/* ── Header ── */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div>
+                      <p style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e293b' }}>{p.nombre}</p>
+                      <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '1px' }}>{p.m3} m³ · {pct(p.ratio)} del contenedor</p>
+                    </div>
+                    <span style={{ background: bg, color, border: `1px solid ${color}30`, fontSize: '0.68rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '50px' }}>
+                      {p.tipo === 'Propio' ? '📦 Propio' : `🤝 ${p.clienteNombre || 'Cliente'}`}
+                    </span>
+                  </div>
+
+                  {/* ── Costo asignado en pesos ── */}
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '0.85rem' }}>
+                    <p style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.25rem' }}>Costo asignado (pesos)</p>
+                    <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>{fmtP(p.costoFinal)}</p>
+                    <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
+                      {fmtP(p.prorPesos)} prorrateo + {fmtP(p.tributoPesos)} VEP
+                    </p>
+                  </div>
+
+                  {/* ── T.C. de conversión ── */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem', background: tcOk ? '#fff4ee' : '#fff5f5', borderRadius: '10px', padding: '0.65rem 0.85rem', border: `1px solid ${tcOk ? '#fed7aa' : '#fecaca'}` }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '0.62rem', fontWeight: 700, color: tcOk ? '#d97706' : '#dc2626', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>
+                        T.C. conversión {!tcOk && '⚠ falta'}
+                      </p>
+                      <input
+                        type="number" step="any"
+                        value={cobrar[i]?.tc ?? ''}
+                        onChange={e => updC(i, 'tc', e.target.value)}
+                        placeholder={p.tcUsed > 0 ? `${p.tcUsed} (auto VEP)` : 'Ingresá T.C.'}
+                        style={{ ...INP, background: 'transparent', border: 'none', padding: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', width: '120px' }}
+                      />
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: '0.62rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>Gastos en USD</p>
+                      <p style={{ fontSize: '1.1rem', fontWeight: 800, color: tcOk ? '#ea580c' : '#cbd5e1' }}>{fmtU(p.gastosUSD)}</p>
+                    </div>
+                  </div>
+
+                  {/* ── Desglose ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                    {/* Gs. Origen */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#64748b' }}>+ Gastos de Origen</span>
+                      <span style={{ fontWeight: 600, color: p.origenUSD > 0 ? '#d97706' : '#cbd5e1' }}>
+                        {p.origenUSD > 0 ? fmtU(p.origenUSD) : '—'}
+                      </span>
+                    </div>
+
+                    {/* FOB */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#64748b' }}>FOB USD (base honorarios)</span>
+                      <span style={{ fontWeight: 600, color: '#475569' }}>{fmtU(p.fobUSD)}</span>
+                    </div>
+
+                    {/* Honorarios */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ color: '#64748b' }}>+ Honorarios (4% sobre FOB+todo)</span>
+                        <button onClick={() => updC(i,'honorarios',!cobrar[i]?.honorarios)}
+                          style={{ padding: '0.1rem 0.5rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700,
+                            background: cobrar[i]?.honorarios ? '#ede9fe' : '#f1f5f9',
+                            color: cobrar[i]?.honorarios ? '#7c3aed' : '#94a3b8' }}>
+                          {cobrar[i]?.honorarios ? 'SÍ' : 'NO'}
+                        </button>
+                      </div>
+                      <span style={{ fontWeight: 600, color: cobrar[i]?.honorarios ? '#7c3aed' : '#cbd5e1' }}>
+                        {cobrar[i]?.honorarios ? fmtU(p.honorarios) : '—'}
+                      </span>
+                    </div>
+
+                    {/* Desp. Adic. */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#64748b' }}>+ Despachante adicional (USD)</span>
+                      <input
+                        type="number" step="any"
+                        value={cobrar[i]?.despAdic ?? ''}
+                        onChange={e => updC(i,'despAdic',e.target.value)}
+                        placeholder="0"
+                        style={{ ...INP, width: '90px', textAlign: 'right', fontWeight: 600, color: n(cobrar[i]?.despAdic) > 0 ? '#059669' : '#94a3b8', padding: '0.25rem 0.5rem', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* ── Total ── */}
+                  <div style={{ background: color + '10', borderRadius: '10px', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `2px solid ${color}30` }}>
+                    <p style={{ fontSize: '0.78rem', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total a Cobrar</p>
+                    <p style={{ fontSize: '1.5rem', fontWeight: 900, color, lineHeight: 1 }}>{fmtU(p.totalUSD)}</p>
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Fila resumen final ── */}
+          <div style={{ ...CARD, background: '#1e293b', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>TOTAL GENERAL A COBRAR — {calc.perProv.length} PROVEEDORES</p>
+            <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Gastos + Honorarios</p>
+                <p style={{ fontSize: '1rem', fontWeight: 700, color: '#93c5fd' }}>{fmtU(calc.perProv.reduce((s,p)=>s+p.gastosUSD+p.honorarios,0))}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Total USD</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff' }}>{fmtU(calc.totalACobrar)}</p>
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 
