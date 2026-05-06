@@ -99,9 +99,9 @@ const FRANCO = {
     { id: 3, nombre: 'generadores', tipo: 'Propio',  clienteId: '',   m3: 4.8,   fobUSD: 16000, gastosOrigenUSD: 350, tributosUSD: 1176.05, tributosTC: 1390 },
   ],
   cobrar:[
-    { tc: 1425, honorarios: false, despAdic: 8000 },
-    { tc: 1425, honorarios: false, despAdic: 1670 },
-    { tc: 1425, honorarios: false, despAdic: 920  },
+    { tc: 1425, honorarios: false, despAdic: 8000, cobrado: false, fechaCobro: '' },
+    { tc: 1425, honorarios: false, despAdic: 1670, cobrado: false, fechaCobro: '' },
+    { tc: 1425, honorarios: false, despAdic: 920,  cobrado: false, fechaCobro: '' },
   ],
   checked: ['cg', 'ncm', 'bl', 'inv', 'legajo', 'fnav', 'lib', 'flete', 'facts', 'costs'],
 };
@@ -503,10 +503,9 @@ function OperationDetail({ op, onBack }) {
         const tcUsed       = n(cb.tc) > 0 ? n(cb.tc) : n(p.tributosTC);
         const gastosUSD    = tcUsed > 0 ? Math.round((costoFinal / tcUsed) * 100) / 100 : 0;
         const origenUSD    = n(p.gastosOrigenUSD);
-        const fobPlus      = n(p.fobUSD) + gastosUSD + origenUSD;
-        const honorarios   = cb.honorarios ? Math.round(fobPlus * 0.04 * 100) / 100 : 0;
+        const honorarios   = cb.honorarios ? Math.round((gastosUSD + origenUSD) * 0.04 * 100) / 100 : 0;
         const totalUSD     = Math.round((gastosUSD + origenUSD + honorarios + n(cb.despAdic)) * 100) / 100;
-        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', clienteNombre, m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, fobPlus, honorarios, totalUSD, tcUsed, cb };
+        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', clienteNombre, m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, honorarios, totalUSD, tcUsed, cb };
       });
 
     return {
@@ -689,7 +688,7 @@ function OperationDetail({ op, onBack }) {
                   </tfoot>
                 </table>
               </div>
-              <button onClick={() => { setProveedores(p => [...p, newProv()]); setCobrar(c => [...c, { tc: '', honorarios: true, despAdic: '' }]); D(); }}
+              <button onClick={() => { setProveedores(p => [...p, newProv()]); setCobrar(c => [...c, { tc: '', honorarios: true, despAdic: '', cobrado: false, fechaCobro: '' }]); D(); }}
                 style={{ marginTop: '0.6rem', background: 'none', border: '1px dashed #d97706', borderRadius: '7px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, color: '#d97706', cursor: 'pointer' }}>
                 + Agregar proveedor
               </button>
@@ -932,26 +931,33 @@ function OperationDetail({ op, onBack }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
           {/* ── Barra resumen superior ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-            {[
-              ['Total a Cobrar', fmtU(calc.totalACobrar), '#7c3aed', '#f5f3ff'],
-              ['Gastos en USD', fmtU(calc.perProv.reduce((s,p)=>s+p.gastosUSD,0)), '#ea580c', '#fff4ee'],
-              ['Gs. Origen USD', fmtU(calc.perProv.reduce((s,p)=>s+p.origenUSD,0)), '#d97706', '#fff7ed'],
-              ['Honorarios', fmtU(calc.perProv.reduce((s,p)=>s+p.honorarios,0)), '#059669', '#f0fdf4'],
-            ].map(([lbl, val, color, bg]) => (
-              <div key={lbl} style={{ ...CARD, background: bg, border: `1px solid ${color}20`, padding: '1rem' }}>
-                <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>{lbl}</p>
-                <p style={{ fontSize: '1.3rem', fontWeight: 800, color, lineHeight: 1 }}>{val}</p>
+          {(() => {
+            const cobrados   = cobrar.filter(c => c?.cobrado).length;
+            const pendientes = calc.perProv.length - cobrados;
+            const totalCobrado = calc.perProv.reduce((s,p,i) => s + (cobrar[i]?.cobrado ? p.totalUSD : 0), 0);
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                {[
+                  ['Total a Cobrar', fmtU(calc.totalACobrar), '#7c3aed', '#f5f3ff'],
+                  ['Ya Cobrado', fmtU(totalCobrado), '#059669', '#f0fdf4'],
+                  [`Cobrados (${cobrados}/${calc.perProv.length})`, pendientes === 0 ? 'Todos ✓' : `${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`, pendientes === 0 ? '#059669' : '#ea580c', pendientes === 0 ? '#f0fdf4' : '#fff4ee'],
+                  ['Honorarios', fmtU(calc.perProv.reduce((s,p)=>s+p.honorarios,0)), '#7c3aed', '#f5f3ff'],
+                ].map(([lbl, val, color, bg]) => (
+                  <div key={lbl} style={{ ...CARD, background: bg, border: `1px solid ${color}20`, padding: '1rem' }}>
+                    <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>{lbl}</p>
+                    <p style={{ fontSize: '1.15rem', fontWeight: 800, color, lineHeight: 1 }}>{val}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           {/* ── Aviso si falta TC ── */}
           {calc.perProv.some(p => p.tcUsed === 0) && (
             <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ fontSize: '1rem' }}>⚠️</span>
+              <span>⚠️</span>
               <p style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 600 }}>
-                Algunos proveedores no tienen T.C. cargado en VEP/Tributos. Ingresá el T.C. directamente en cada tarjeta o cargalo en la tabla de VEP Aduana.
+                Algunos proveedores no tienen T.C. — cargalo en VEP/Tributos o directamente en cada tarjeta.
               </p>
             </div>
           )}
@@ -959,101 +965,114 @@ function OperationDetail({ op, onBack }) {
           {/* ── Tarjetas por proveedor ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
             {calc.perProv.map((p, i) => {
-              const color = p.tipo === 'Propio' ? '#059669' : '#7c3aed';
-              const bg    = p.tipo === 'Propio' ? '#f0fdf4' : '#f5f3ff';
-              const tcOk  = p.tcUsed > 0;
+              const isCobrado = cobrar[i]?.cobrado ?? false;
+              const accentColor = p.tipo === 'Propio' ? '#059669' : '#7c3aed';
+              const accentBg    = p.tipo === 'Propio' ? '#f0fdf4' : '#f5f3ff';
+              const tcOk        = p.tcUsed > 0;
               return (
-                <div key={p.nombre} style={{ ...CARD, borderLeft: `4px solid ${color}`, padding: '1.25rem' }}>
+                <div key={p.nombre} style={{ ...CARD, borderLeft: `4px solid ${isCobrado ? '#059669' : accentColor}`, padding: '1.25rem', opacity: isCobrado ? 0.85 : 1, position: 'relative' }}>
+
+                  {/* Cobrado badge overlay */}
+                  {isCobrado && (
+                    <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '50px', padding: '0.2rem 0.7rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#059669' }}>✓ COBRADO</span>
+                    </div>
+                  )}
 
                   {/* ── Header ── */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingRight: isCobrado ? '6rem' : 0 }}>
                     <div>
                       <p style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e293b' }}>{p.nombre}</p>
                       <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '1px' }}>{p.m3} m³ · {pct(p.ratio)} del contenedor</p>
                     </div>
-                    <span style={{ background: bg, color, border: `1px solid ${color}30`, fontSize: '0.68rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '50px' }}>
+                    <span style={{ background: accentBg, color: accentColor, border: `1px solid ${accentColor}30`, fontSize: '0.68rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '50px' }}>
                       {p.tipo === 'Propio' ? '📦 Propio' : `🤝 ${p.clienteNombre || 'Cliente'}`}
                     </span>
                   </div>
 
                   {/* ── Costo asignado en pesos ── */}
-                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '0.85rem' }}>
-                    <p style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.25rem' }}>Costo asignado (pesos)</p>
-                    <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>{fmtP(p.costoFinal)}</p>
-                    <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
-                      {fmtP(p.prorPesos)} prorrateo + {fmtP(p.tributoPesos)} VEP
-                    </p>
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.65rem 0.85rem', marginBottom: '0.85rem' }}>
+                    <p style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>Costo asignado (pesos)</p>
+                    <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b' }}>{fmtP(p.costoFinal)}</p>
+                    <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '1px' }}>{fmtP(p.prorPesos)} prorrateo + {fmtP(p.tributoPesos)} VEP</p>
                   </div>
 
-                  {/* ── T.C. de conversión ── */}
+                  {/* ── T.C. → Gastos USD ── */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem', background: tcOk ? '#fff4ee' : '#fff5f5', borderRadius: '10px', padding: '0.65rem 0.85rem', border: `1px solid ${tcOk ? '#fed7aa' : '#fecaca'}` }}>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: '0.62rem', fontWeight: 700, color: tcOk ? '#d97706' : '#dc2626', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>
+                      <p style={{ fontSize: '0.6rem', fontWeight: 700, color: tcOk ? '#d97706' : '#dc2626', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>
                         T.C. conversión {!tcOk && '⚠ falta'}
                       </p>
-                      <input
-                        type="number" step="any"
-                        value={cobrar[i]?.tc ?? ''}
-                        onChange={e => updC(i, 'tc', e.target.value)}
-                        placeholder={p.tcUsed > 0 ? `${p.tcUsed} (auto VEP)` : 'Ingresá T.C.'}
-                        style={{ ...INP, background: 'transparent', border: 'none', padding: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', width: '120px' }}
-                      />
+                      <input type="number" step="any" value={cobrar[i]?.tc ?? ''} onChange={e => updC(i,'tc',e.target.value)}
+                        placeholder={p.tcUsed > 0 ? `${p.tcUsed} (auto)` : 'Ingresá T.C.'}
+                        style={{ ...INP, background: 'transparent', border: 'none', padding: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', width: '130px' }} />
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: '0.62rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>Gastos en USD</p>
+                      <p style={{ fontSize: '0.6rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>Gastos en USD</p>
                       <p style={{ fontSize: '1.1rem', fontWeight: 800, color: tcOk ? '#ea580c' : '#cbd5e1' }}>{fmtU(p.gastosUSD)}</p>
                     </div>
                   </div>
 
-                  {/* ── Desglose ── */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                  {/* ── Conceptos adicionales ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.85rem', padding: '0 0.15rem' }}>
+
                     {/* Gs. Origen */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
                       <span style={{ color: '#64748b' }}>+ Gastos de Origen</span>
-                      <span style={{ fontWeight: 600, color: p.origenUSD > 0 ? '#d97706' : '#cbd5e1' }}>
-                        {p.origenUSD > 0 ? fmtU(p.origenUSD) : '—'}
-                      </span>
+                      <span style={{ fontWeight: 600, color: p.origenUSD > 0 ? '#d97706' : '#cbd5e1' }}>{p.origenUSD > 0 ? fmtU(p.origenUSD) : '—'}</span>
                     </div>
 
-                    {/* FOB */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
-                      <span style={{ color: '#64748b' }}>FOB USD (base honorarios)</span>
-                      <span style={{ fontWeight: 600, color: '#475569' }}>{fmtU(p.fobUSD)}</span>
-                    </div>
-
-                    {/* Honorarios */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                    {/* Honorarios 4% */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', background: cobrar[i]?.honorarios ? '#faf5ff' : 'transparent', borderRadius: '8px', padding: cobrar[i]?.honorarios ? '0.4rem 0.6rem' : '0', margin: cobrar[i]?.honorarios ? '0 -0.15rem' : '0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ color: '#64748b' }}>+ Honorarios (4% sobre FOB+todo)</span>
+                        <span style={{ color: '#64748b' }}>+ Honorarios (4%)</span>
                         <button onClick={() => updC(i,'honorarios',!cobrar[i]?.honorarios)}
-                          style={{ padding: '0.1rem 0.5rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700,
+                          style={{ padding: '0.12rem 0.55rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700,
                             background: cobrar[i]?.honorarios ? '#ede9fe' : '#f1f5f9',
                             color: cobrar[i]?.honorarios ? '#7c3aed' : '#94a3b8' }}>
                           {cobrar[i]?.honorarios ? 'SÍ' : 'NO'}
                         </button>
                       </div>
-                      <span style={{ fontWeight: 600, color: cobrar[i]?.honorarios ? '#7c3aed' : '#cbd5e1' }}>
+                      <span style={{ fontWeight: 700, color: cobrar[i]?.honorarios ? '#7c3aed' : '#cbd5e1' }}>
                         {cobrar[i]?.honorarios ? fmtU(p.honorarios) : '—'}
                       </span>
                     </div>
 
-                    {/* Desp. Adic. */}
+                    {/* Desp. Adicional */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
-                      <span style={{ color: '#64748b' }}>+ Despachante adicional (USD)</span>
-                      <input
-                        type="number" step="any"
-                        value={cobrar[i]?.despAdic ?? ''}
-                        onChange={e => updC(i,'despAdic',e.target.value)}
-                        placeholder="0"
-                        style={{ ...INP, width: '90px', textAlign: 'right', fontWeight: 600, color: n(cobrar[i]?.despAdic) > 0 ? '#059669' : '#94a3b8', padding: '0.25rem 0.5rem', fontSize: '0.82rem' }}
-                      />
+                      <span style={{ color: '#64748b' }}>+ Desp. adicional (USD)</span>
+                      <input type="number" step="any" value={cobrar[i]?.despAdic ?? ''} onChange={e => updC(i,'despAdic',e.target.value)} placeholder="0"
+                        style={{ ...INP, width: '90px', textAlign: 'right', fontWeight: 600, color: n(cobrar[i]?.despAdic) > 0 ? '#059669' : '#94a3b8', padding: '0.25rem 0.5rem', fontSize: '0.82rem' }} />
                     </div>
                   </div>
 
-                  {/* ── Total ── */}
-                  <div style={{ background: color + '10', borderRadius: '10px', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `2px solid ${color}30` }}>
-                    <p style={{ fontSize: '0.78rem', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total a Cobrar</p>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 900, color, lineHeight: 1 }}>{fmtU(p.totalUSD)}</p>
+                  {/* ── Total a Cobrar ── */}
+                  <div style={{ background: accentColor + '12', borderRadius: '10px', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <p style={{ fontSize: '0.78rem', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total a Cobrar</p>
+                    <p style={{ fontSize: '1.5rem', fontWeight: 900, color: accentColor, lineHeight: 1 }}>{fmtU(p.totalUSD)}</p>
+                  </div>
+
+                  {/* ── Estado de cobro ── */}
+                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                    <div>
+                      <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.2rem' }}>Estado de cobro</p>
+                      {isCobrado && cobrar[i]?.fechaCobro && (
+                        <p style={{ fontSize: '0.7rem', color: '#059669' }}>Cobrado el {cobrar[i].fechaCobro}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const ahora = new Date().toLocaleDateString('es-AR');
+                        updC(i, 'cobrado', !isCobrado);
+                        updC(i, 'fechaCobro', !isCobrado ? ahora : '');
+                      }}
+                      style={{
+                        padding: '0.4rem 1rem', borderRadius: '50px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, transition: 'all 0.15s',
+                        background: isCobrado ? '#dcfce7' : '#ea580c',
+                        color:      isCobrado ? '#059669' : '#fff',
+                      }}>
+                      {isCobrado ? '✓ Cobrado — desmarcar' : 'Marcar como cobrado'}
+                    </button>
                   </div>
 
                 </div>
@@ -1066,8 +1085,8 @@ function OperationDetail({ op, onBack }) {
             <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>TOTAL GENERAL A COBRAR — {calc.perProv.length} PROVEEDORES</p>
             <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
               <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Gastos + Honorarios</p>
-                <p style={{ fontSize: '1rem', fontWeight: 700, color: '#93c5fd' }}>{fmtU(calc.perProv.reduce((s,p)=>s+p.gastosUSD+p.honorarios,0))}</p>
+                <p style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Honorarios + Desp.</p>
+                <p style={{ fontSize: '1rem', fontWeight: 700, color: '#c4b5fd' }}>{fmtU(calc.perProv.reduce((s,p,i)=>s+p.honorarios+n(cobrar[i]?.despAdic),0))}</p>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <p style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Total USD</p>
