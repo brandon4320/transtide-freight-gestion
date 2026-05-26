@@ -499,13 +499,16 @@ function OperationDetail({ op, onBack }) {
         const prorPesos    = Math.round(ratio * prorBase);
         const tributoPesos = Math.round(n(p.tributosUSD) * n(p.tributosTC));
         const costoFinal   = prorPesos + tributoPesos;
-        const cb           = cobrar[i] || { tc: 0, honorarios: false, despAdic: 0 };
-        const tcUsed       = n(cb.tc) > 0 ? n(cb.tc) : n(p.tributosTC);
-        const gastosUSD    = tcUsed > 0 ? Math.round((costoFinal / tcUsed) * 100) / 100 : 0;
-        const origenUSD    = n(p.gastosOrigenUSD);
-        const honorarios   = cb.honorarios ? Math.round((gastosUSD + origenUSD) * 0.04 * 100) / 100 : 0;
-        const totalUSD     = Math.round((gastosUSD + origenUSD + honorarios + n(cb.despAdic)) * 100) / 100;
-        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', clienteNombre, m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, honorarios, totalUSD, tcUsed, cb };
+        const cb             = cobrar[i] || { tc: 0, honorarios: false, despAdic: 0 };
+        const tcUsed         = n(cb.tc) > 0 ? n(cb.tc) : n(p.tributosTC);
+        const gastosUSD      = tcUsed > 0 ? Math.round((costoFinal / tcUsed) * 100) / 100 : 0;
+        const origenUSD      = n(p.gastosOrigenUSD);
+        const honorarios     = cb.honorarios ? Math.round((gastosUSD + origenUSD) * 0.04 * 100) / 100 : 0;
+        const totalUSD       = Math.round((gastosUSD + origenUSD + honorarios + n(cb.despAdic)) * 100) / 100;
+        // Flete marítimo (cash) — desembolso propio de Brandon, diferenciado
+        const fleteIntlPesos = Math.round(ratio * cashPesos);
+        const fleteIntlUSD   = tcUsed > 0 ? Math.round((fleteIntlPesos / tcUsed) * 100) / 100 : 0;
+        return { nombre: p.nombre, tipo: p.tipo || 'Cliente', clienteNombre, m3: n(p.m3), fobUSD: n(p.fobUSD), origenUSD, ratio, prorPesos, tributoPesos, costoFinal, gastosUSD, honorarios, totalUSD, tcUsed, cb, fleteIntlPesos, fleteIntlUSD };
       });
 
     return {
@@ -513,8 +516,9 @@ function OperationDetail({ op, onBack }) {
       enBlancoPesos, cashPesos,
       totalGeneral: enBlancoPesos + cashPesos,
       prorBase, totalM3, perProv,
-      totalCostoFinal: perProv.reduce((s, p) => s + p.costoFinal, 0),
-      totalACobrar:    perProv.reduce((s, p) => s + p.totalUSD, 0),
+      totalCostoFinal:    perProv.reduce((s, p) => s + p.costoFinal, 0),
+      totalACobrar:       perProv.reduce((s, p) => s + p.totalUSD, 0),
+      totalFleteIntlUSD:  perProv.reduce((s, p) => s + p.fleteIntlUSD, 0),
     };
   }, [naviera, terminal, aduana, transporte, despachante, admin, fleteIntl, proveedores, cobrar, clientes]);
 
@@ -932,22 +936,47 @@ function OperationDetail({ op, onBack }) {
 
           {/* ── Barra resumen superior ── */}
           {(() => {
-            const cobrados   = cobrar.filter(c => c?.cobrado).length;
-            const pendientes = calc.perProv.length - cobrados;
+            const cobrados     = cobrar.filter(c => c?.cobrado).length;
+            const pendientes   = calc.perProv.length - cobrados;
             const totalCobrado = calc.perProv.reduce((s,p,i) => s + (cobrar[i]?.cobrado ? p.totalUSD : 0), 0);
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-                {[
-                  ['Total a Cobrar', fmtU(calc.totalACobrar), '#7c3aed', '#f5f3ff'],
-                  ['Ya Cobrado', fmtU(totalCobrado), '#059669', '#f0fdf4'],
-                  [`Cobrados (${cobrados}/${calc.perProv.length})`, pendientes === 0 ? 'Todos ✓' : `${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`, pendientes === 0 ? '#059669' : '#ea580c', pendientes === 0 ? '#f0fdf4' : '#fff4ee'],
-                  ['Honorarios', fmtU(calc.perProv.reduce((s,p)=>s+p.honorarios,0)), '#7c3aed', '#f5f3ff'],
-                ].map(([lbl, val, color, bg]) => (
-                  <div key={lbl} style={{ ...CARD, background: bg, border: `1px solid ${color}20`, padding: '1rem' }}>
-                    <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>{lbl}</p>
-                    <p style={{ fontSize: '1.15rem', fontWeight: 800, color, lineHeight: 1 }}>{val}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {/* fila 1: stats principales */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                  {[
+                    ['Total a Cobrar', fmtU(calc.totalACobrar), '#7c3aed', '#f5f3ff'],
+                    ['Ya Cobrado', fmtU(totalCobrado), '#059669', '#f0fdf4'],
+                    [`Cobrados (${cobrados}/${calc.perProv.length})`, pendientes === 0 ? 'Todos ✓' : `${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`, pendientes === 0 ? '#059669' : '#ea580c', pendientes === 0 ? '#f0fdf4' : '#fff4ee'],
+                    ['Honorarios', fmtU(calc.perProv.reduce((s,p)=>s+p.honorarios,0)), '#7c3aed', '#f5f3ff'],
+                  ].map(([lbl, val, color, bg]) => (
+                    <div key={lbl} style={{ ...CARD, background: bg, border: `1px solid ${color}20`, padding: '1rem' }}>
+                      <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>{lbl}</p>
+                      <p style={{ fontSize: '1.15rem', fontWeight: 800, color, lineHeight: 1 }}>{val}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* fila 2: flete marítimo destacado */}
+                {calc.cashPesos > 0 && (
+                  <div style={{ background: '#0f172a', borderRadius: '14px', padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#1e3a5f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>🚢</div>
+                      <div>
+                        <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Flete Marítimo — tu desembolso propio (cash)</p>
+                        <p style={{ fontSize: '0.72rem', color: '#475569', marginTop: '1px' }}>Pagado por vos · a recuperar de cada cliente según su % de carga</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'center' }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontSize: '0.62rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>Total en pesos</p>
+                        <p style={{ fontSize: '1rem', fontWeight: 700, color: '#94a3b8' }}>{fmtP(calc.cashPesos)}</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontSize: '0.62rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>Total a recuperar (USD)</p>
+                        <p style={{ fontSize: '1.4rem', fontWeight: 900, color: '#38bdf8' }}>{fmtU(calc.totalFleteIntlUSD)}</p>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             );
           })()}
@@ -1012,6 +1041,20 @@ function OperationDetail({ op, onBack }) {
                       <p style={{ fontSize: '1.1rem', fontWeight: 800, color: tcOk ? '#ea580c' : '#cbd5e1' }}>{fmtU(p.gastosUSD)}</p>
                     </div>
                   </div>
+
+                  {/* ── Flete marítimo (desembolso propio) ── */}
+                  {p.fleteIntlUSD > 0 && (
+                    <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '0.6rem 0.85rem', marginBottom: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem' }}>🚢</span>
+                        <div>
+                          <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Flete marítimo (tu parte)</p>
+                          <p style={{ fontSize: '0.65rem', color: '#7dd3fc' }}>{fmtP(p.fleteIntlPesos)} ÷ TC {p.tcUsed > 0 ? p.tcUsed : '—'}</p>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0284c7', lineHeight: 1 }}>{fmtU(p.fleteIntlUSD)}</p>
+                    </div>
+                  )}
 
                   {/* ── Conceptos adicionales ── */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.85rem', padding: '0 0.15rem' }}>
@@ -1084,6 +1127,12 @@ function OperationDetail({ op, onBack }) {
           <div style={{ ...CARD, background: '#1e293b', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>TOTAL GENERAL A COBRAR — {calc.perProv.length} PROVEEDORES</p>
             <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+              {calc.totalFleteIntlUSD > 0 && (
+                <div style={{ textAlign: 'right', borderRight: '1px solid #334155', paddingRight: '2rem' }}>
+                  <p style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' }}>🚢 Flete marítimo</p>
+                  <p style={{ fontSize: '1rem', fontWeight: 700, color: '#38bdf8' }}>{fmtU(calc.totalFleteIntlUSD)}</p>
+                </div>
+              )}
               <div style={{ textAlign: 'right' }}>
                 <p style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Honorarios + Desp.</p>
                 <p style={{ fontSize: '1rem', fontWeight: 700, color: '#c4b5fd' }}>{fmtU(calc.perProv.reduce((s,p,i)=>s+p.honorarios+n(cobrar[i]?.despAdic),0))}</p>
