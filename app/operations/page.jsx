@@ -226,91 +226,94 @@ function OperationsList({ onSelect }) {
       </div>
 
       {/* list */}
-      <div style={{ display: 'grid', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* column headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.6fr 1.4fr 1fr auto', gap: '0.5rem', padding: '0 1.25rem 0.55rem 5.25rem', alignItems: 'center' }}>
+          {['Operación', 'N° BL', 'Contenedor / M³', 'ETA', ''].map(h => (
+            <span key={h} style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
+          ))}
+        </div>
+
         {ops.map(op => {
-          const color   = estadoColor(op.estado);
-          const canOpen = true;
           const est = estadoObj(op.estado);
+          const cap = CONTAINER_M3[op.contenedor];
+          const ocup = getOcupado(op.id);
+          const m3str = cap
+            ? `${ocup != null ? ocup.toFixed(1) : '—'} / ${cap} m³`
+            : ocup != null ? `${ocup.toFixed(1)} m³` : '—';
+          const m3Over = cap && ocup != null && ocup > cap * 0.9;
           return (
             <div key={op.id}
-              onClick={() => { if (statusPop === op.id) return; canOpen && onSelect(op); }}
-              style={{ ...CARD, cursor: canOpen ? 'pointer' : 'default', transition: 'box-shadow 0.15s' }}
-              onMouseEnter={e => canOpen && (e.currentTarget.style.boxShadow = '0 8px 30px rgba(37,99,235,0.12)')}
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = CARD.boxShadow)}
+              onClick={() => { if (statusPop === op.id) return; onSelect(op); }}
+              style={{
+                display: 'grid', gridTemplateColumns: '3fr 1.6fr 1.4fr 1fr auto',
+                gap: '0.5rem', alignItems: 'center',
+                padding: '0.8rem 1.25rem',
+                borderLeft: `4px solid ${est.color}`,
+                background: '#fff',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                marginBottom: '5px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                transition: 'background 0.1s, box-shadow 0.1s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}
             >
-              {/* row 1: nombre + estado + actions */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.7rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, flexShrink: 0 }} />
-                  <div>
-                    <p style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>{op.nombre}</p>
-                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '1px' }}>Alta: {op.fecha || '—'}</p>
-                  </div>
+              {/* col 1: icon + name + date */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: est.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05rem', flexShrink: 0 }}>
+                  {est.icon}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-                  {/* ── status badge — click to change ── */}
-                  <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setStatusPop(statusPop === op.id ? null : op.id)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.75rem', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700, background: est.bg, color: est.color, border: `1.5px solid ${est.color}40`, cursor: 'pointer' }}>
-                      <span>{est.icon}</span> {est.label} <span style={{ fontSize: '0.6rem', opacity: 0.6 }}>▾</span>
-                    </button>
-
-                    {/* dropdown */}
-                    {statusPop === op.id && (
-                      <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', background: '#fff', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.14)', border: '1px solid #e2e8f0', zIndex: 200, minWidth: '230px', overflow: 'hidden' }}>
-                        <p style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0.6rem 0.85rem 0.3rem' }}>Cambiar estado</p>
-                        {ESTADOS.map((s, idx) => (
-                          <button key={s.label} onClick={() => setEstado(op.id, s.label)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.85rem', border: 'none', background: op.estado === s.label ? s.bg : 'transparent', cursor: 'pointer', borderBottom: idx < ESTADOS.length - 1 ? '1px solid #f8fafc' : 'none' }}>
-                            <span>{s.icon}</span>
-                            <div style={{ textAlign: 'left' }}>
-                              <p style={{ fontSize: '0.78rem', fontWeight: op.estado === s.label ? 700 : 500, color: op.estado === s.label ? s.color : '#374151' }}>{s.label}</p>
-                              <p style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '1px' }}>{s.desc}</p>
-                            </div>
-                            {op.estado === s.label && <span style={{ marginLeft: 'auto', color: s.color, fontSize: '0.8rem' }}>✓</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {canOpen && (
-                    <button onClick={(e) => { e.stopPropagation(); onSelect(op); }} style={{ padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', background: '#fff4ee', color: '#ea580c', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
-                      Ver →
-                    </button>
-                  )}
-                  <button onClick={(e) => openEdit(op, e)} style={{ padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
-                    ✏ Editar
-                  </button>
-                  <button onClick={(e) => askDel(op.id, e)} style={{ padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fff', color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
-                    ✕
-                  </button>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.nombre}</p>
+                  <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '1px' }}>Alta: {op.fecha || '—'}</p>
                 </div>
               </div>
 
-              {/* row 2: metadata pills */}
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingTop: '0.6rem', borderTop: '1px solid #f1f5f9' }}>
-                {[
-                  ['N° BL',        op.bl        || '—', op.bl ? '#1e293b' : '#cbd5e1'],
-                  ['Contenedor',   op.contenedor || '—', '#475569'],
-                  (() => {
-                    const cap = CONTAINER_M3[op.contenedor];
-                    const ocup = getOcupado(op.id);
-                    const label = 'M³';
-                    const val = cap
-                      ? `${ocup != null ? ocup.toFixed(1) : '—'} / ${cap} m³`
-                      : ocup != null ? `${ocup.toFixed(1)} m³` : '—';
-                    return [label, val, cap && ocup != null && ocup > cap * 0.9 ? '#dc2626' : '#475569'];
-                  })(),
-                  ['Proveedores',  op.proveedores || '—', '#475569'],
-                  ['ETA',          op.eta        || '—', op.eta ? '#059669' : '#cbd5e1'],
-                ].map(([k, v, vc]) => (
-                  <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{k}</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: vc }}>{v}</span>
-                  </div>
-                ))}
+              {/* col 2: BL */}
+              <p style={{ fontSize: '0.8rem', fontWeight: 600, color: op.bl ? '#475569' : '#cbd5e1', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.bl || '—'}</p>
+
+              {/* col 3: container + m³ */}
+              <div>
+                <p style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>{op.contenedor || '—'}</p>
+                <p style={{ fontSize: '0.7rem', color: m3Over ? '#dc2626' : '#94a3b8' }}>{m3str}</p>
+              </div>
+
+              {/* col 4: ETA */}
+              <p style={{ fontSize: '0.82rem', fontWeight: 600, color: op.eta ? '#059669' : '#cbd5e1' }}>{op.eta || '—'}</p>
+
+              {/* col 5: actions */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={e => e.stopPropagation()}>
+                {/* status badge */}
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setStatusPop(statusPop === op.id ? null : op.id)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.65rem', borderRadius: '50px', fontSize: '0.68rem', fontWeight: 700, background: est.bg, color: est.color, border: `1.5px solid ${est.color}40`, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {est.label} <span style={{ fontSize: '0.55rem', opacity: 0.6 }}>▾</span>
+                  </button>
+                  {statusPop === op.id && (
+                    <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', background: '#fff', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.14)', border: '1px solid #e2e8f0', zIndex: 200, minWidth: '230px', overflow: 'hidden' }}>
+                      <p style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0.6rem 0.85rem 0.3rem' }}>Cambiar estado</p>
+                      {ESTADOS.map((s, idx) => (
+                        <button key={s.label} onClick={() => setEstado(op.id, s.label)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.85rem', border: 'none', background: op.estado === s.label ? s.bg : 'transparent', cursor: 'pointer', borderBottom: idx < ESTADOS.length - 1 ? '1px solid #f8fafc' : 'none' }}>
+                          <span>{s.icon}</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <p style={{ fontSize: '0.78rem', fontWeight: op.estado === s.label ? 700 : 500, color: op.estado === s.label ? s.color : '#374151' }}>{s.label}</p>
+                            <p style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '1px' }}>{s.desc}</p>
+                          </div>
+                          {op.estado === s.label && <span style={{ marginLeft: 'auto', color: s.color, fontSize: '0.8rem' }}>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* edit icon */}
+                <button onClick={e => openEdit(op, e)} title="Editar"
+                  style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✏</button>
+                {/* delete icon */}
+                <button onClick={e => askDel(op.id, e)} title="Eliminar"
+                  style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fff', color: '#dc2626', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
               </div>
             </div>
           );
@@ -547,58 +550,53 @@ function OperationDetail({ op, onBack }) {
   return (
     <div style={{ paddingBottom: '3rem' }}>
 
-      {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <button onClick={handleBack} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
-          ← Operaciones
-        </button>
-        <div style={{ height: '20px', width: '1px', background: '#e2e8f0' }} />
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.15rem' }}>{op.nombre}</h2>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            {[['Contenedor', op.contenedor], ['Puerto Origen', puertoOrigen || '—'], ['M³ total', `${calc.totalM3.toFixed(2)} m³`], ['Proveedores', provActivos.length], ['Fecha', op.fecha]].map(([k, v]) => (
-              <span key={k} style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{k}: <strong style={{ color: '#475569' }}>{v}</strong></span>
-            ))}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '80px', height: '5px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden' }}>
-                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#059669' : '#ea580c', borderRadius: '99px', transition: 'width 0.3s' }} />
-              </div>
-              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{doneTasks}/{totalTasks} tareas</span>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {/* save indicator */}
-          {saveFlash && (
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              ✓ Guardado
-            </span>
-          )}
-          {isDirty && !saveFlash && (
-            <span style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
-              Cambios sin guardar
-            </span>
-          )}
-          <button onClick={saveAll} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1.1rem', borderRadius: '50px', border: 'none', background: isDirty ? '#059669' : '#e2e8f0', color: isDirty ? '#fff' : '#94a3b8', fontWeight: 700, fontSize: '0.8rem', cursor: isDirty ? 'pointer' : 'default', transition: 'all 0.2s' }}>
-            {saveFlash ? '✓ Guardado' : '↑ Guardar'}
+      {/* HEADER — row 1: navigation + title + save */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button onClick={handleBack} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.85rem', borderRadius: '50px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
+            ← Operaciones
           </button>
-          <div style={{ textAlign: 'right', background: '#f0fdf4', borderRadius: '10px', padding: '0.5rem 1rem' }}>
-            <p style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Total General</p>
-            <p style={{ fontSize: '1rem', fontWeight: 800, color: '#059669' }}>{fmtP(calc.totalGeneral)}</p>
-          </div>
-          <div style={{ textAlign: 'right', background: '#fff4ee', borderRadius: '10px', padding: '0.5rem 1rem' }}>
-            <p style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>A Cobrar</p>
-            <p style={{ fontSize: '1rem', fontWeight: 800, color: '#ea580c' }}>{fmtU(calc.totalACobrar)}</p>
-          </div>
+          <div style={{ height: '20px', width: '1px', background: '#e2e8f0' }} />
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1e293b' }}>{op.nombre}</h2>
+          {isDirty && !saveFlash && (
+            <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+              Sin guardar
+            </span>
+          )}
+          {saveFlash && <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#059669' }}>✓ Guardado</span>}
         </div>
+        <button onClick={saveAll} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1.2rem', borderRadius: '50px', border: 'none', background: isDirty ? '#059669' : '#e2e8f0', color: isDirty ? '#fff' : '#94a3b8', fontWeight: 700, fontSize: '0.82rem', cursor: isDirty ? 'pointer' : 'default', transition: 'all 0.2s' }}>
+          {saveFlash ? '✓ Guardado' : '↑ Guardar'}
+        </button>
+      </div>
+
+      {/* HEADER — row 2: stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.85rem', marginBottom: '1.5rem' }}>
+        {[
+          { label: 'Total Gastos', value: fmtP(calc.totalGeneral), color: '#1e293b', bg: '#f8fafc', border: '#e2e8f0' },
+          { label: 'A Cobrar', value: fmtU(calc.totalACobrar), color: '#ea580c', bg: '#fff4ee', border: '#fed7aa' },
+          { label: 'M³ Ocupados', value: `${calc.totalM3.toFixed(1)} / ${CONTAINER_M3[op.contenedor] || '?'} m³`, color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+          { label: `Tareas ${doneTasks}/${totalTasks}`, value: `${progress}% completado`, color: progress === 100 ? '#059669' : '#ea580c', bg: progress === 100 ? '#f0fdf4' : '#fff7ed', border: progress === 100 ? '#bbf7d0' : '#fed7aa', progress: true },
+        ].map(({ label, value, color, bg, border, progress: showBar }) => (
+          <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '12px', padding: '0.85rem 1rem' }}>
+            <p style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>{label}</p>
+            <p style={{ fontSize: '1rem', fontWeight: 800, color, lineHeight: 1.2 }}>{value}</p>
+            {showBar && (
+              <div style={{ marginTop: '0.45rem', width: '100%', height: '4px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: color, borderRadius: '99px', transition: 'width 0.3s' }} />
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* MAIN TABS */}
       <div style={{ display: 'flex', background: '#fff', borderRadius: '12px', padding: '4px', border: '1px solid #e2e8f0', gap: '3px', marginBottom: '1.25rem', width: 'fit-content' }}>
-        {[['proveedores','Proveedores & Carga'],['gastos','Gastos'],['acobrar','A Cobrar (USD)']].map(([id, lbl]) => (
-          <button key={id} onClick={() => setMainTab(id)} style={{ padding: '0.55rem 1.2rem', borderRadius: '9px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, background: mainTab === id ? '#ea580c' : 'transparent', color: mainTab === id ? '#fff' : '#94a3b8', transition: 'all 0.15s' }}>
-            {lbl}
+        {[['proveedores','📦','Proveedores & Carga'],['gastos','💰','Gastos'],['acobrar','📬','A Cobrar']].map(([id, icon, lbl]) => (
+          <button key={id} onClick={() => setMainTab(id)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.6rem 1.35rem', borderRadius: '9px', border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, background: mainTab === id ? '#ea580c' : 'transparent', color: mainTab === id ? '#fff' : '#64748b', transition: 'all 0.15s' }}>
+            <span style={{ fontSize: '0.95rem' }}>{icon}</span> {lbl}
           </button>
         ))}
       </div>
@@ -611,12 +609,15 @@ function OperationDetail({ op, onBack }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
             <div style={CARD}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </div>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>Proveedores y carga</p>
+                  <span style={{ fontSize: '0.65rem', background: '#fff7ed', color: '#d97706', padding: '0.15rem 0.6rem', borderRadius: '50px', fontWeight: 700, border: '1px solid #fde68a' }}>Paso 1</span>
                 </div>
-                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>Proveedores y carga</p>
-                <span style={{ fontSize: '0.65rem', background: '#fff7ed', color: '#d97706', padding: '0.15rem 0.6rem', borderRadius: '50px', fontWeight: 700, border: '1px solid #fde68a' }}>Primer paso</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8' }}>{provActivos.length} activos · {calc.totalM3.toFixed(1)} m³</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -779,35 +780,58 @@ function OperationDetail({ op, onBack }) {
       {/* ══ TAB: GASTOS ══════════════════════════════════════════════════════ */}
       {mainTab === 'gastos' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.25rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: '1.25rem', alignItems: 'start' }}>
 
-            {/* left: invoice input */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {/* LEFT: vertical category sidebar */}
+            <div style={{ position: 'sticky', top: '1rem' }}>
+              <div style={{ ...CARD, padding: '0.5rem' }}>
+                <p style={{ ...LBL, padding: '0.4rem 0.75rem 0.6rem' }}>Categorías de gasto</p>
                 {GASTOS.map(g => {
                   const tot = catTotMap[g.id];
                   const active = gastoTab === g.id;
                   return (
-                    <button key={g.id} onClick={() => setGastoTab(g.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0.5rem 0.85rem', borderRadius: '10px', border: active ? `2px solid ${g.color}` : '1px solid #e2e8f0', cursor: 'pointer', background: active ? g.color + '10' : '#fff', transition: 'all 0.15s', minWidth: '110px' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: active ? g.color : '#94a3b8' }}>{g.label}</span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: active ? g.color : (tot.pesos > 0 ? '#1e293b' : '#cbd5e1') }}>
+                    <button key={g.id} onClick={() => setGastoTab(g.id)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.6rem 0.75rem', borderRadius: '9px', border: 'none', cursor: 'pointer', background: active ? g.color + '14' : 'transparent', marginBottom: '2px', transition: 'background 0.1s', borderLeft: active ? `3px solid ${g.color}` : '3px solid transparent' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: tot.pesos > 0 ? g.color : '#e2e8f0', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.8rem', fontWeight: active ? 700 : 500, color: active ? g.color : '#475569', textAlign: 'left' }}>{g.label}</span>
+                      </div>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: active ? g.color : (tot.pesos > 0 ? '#1e293b' : '#cbd5e1'), flexShrink: 0, marginLeft: '0.5rem' }}>
                         {tot.pesos > 0 ? fmtP(tot.pesos) : '—'}
                       </span>
                     </button>
                   );
                 })}
+                {/* total footer */}
+                <div style={{ marginTop: '0.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: '#1e293b', borderRadius: '9px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8' }}>Total General</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff' }}>{fmtP(calc.totalGeneral)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.35rem 0.75rem', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Banco</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>{fmtP(calc.enBlancoPesos)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.35rem 0.75rem' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Cash (flete)</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: calc.cashPesos > 0 ? '#0891b2' : '#cbd5e1' }}>{fmtP(calc.cashPesos)}</span>
+                  </div>
+                </div>
               </div>
+            </div>
 
+            {/* RIGHT: invoice table + prorrateo note */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {activeCat && (
                 <div style={CARD}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: activeCat.color }} />
-                    <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>{activeCat.label}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: activeCat.color, flexShrink: 0 }} />
+                    <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>{activeCat.label}</p>
                     {activeCat.id === 'aduana' && (
                       <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#dc2626', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700 }}>No se proratea — se asigna por proveedor</span>
                     )}
                     {activeCat.id === 'fleteIntl' && (
-                      <span style={{ fontSize: '0.65rem', background: '#f1f5f9', color: '#64748b', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700 }}>CASH — se proratea por m³</span>
+                      <span style={{ fontSize: '0.65rem', background: '#f0f9ff', color: '#0284c7', padding: '0.15rem 0.5rem', borderRadius: '50px', fontWeight: 700, border: '1px solid #bae6fd' }}>CASH — se proratea por m³</span>
                     )}
                   </div>
                   <InvoiceTable rows={activeCat.rows} accentColor={activeCat.color} onUpdate={upd(activeCat.setter)} onAdd={add(activeCat.setter)} onRemove={rem(activeCat.setter)} />
@@ -822,37 +846,6 @@ function OperationDetail({ op, onBack }) {
                   &nbsp;+ Cash <strong>{fmtP(calc.cashPesos)}</strong>
                   &nbsp;= <strong>{fmtP(calc.prorBase)}</strong>
                 </p>
-              </div>
-            </div>
-
-            {/* right: totals summary sticky */}
-            <div style={{ position: 'sticky', top: '1rem' }}>
-              <div style={CARD}>
-                <p style={{ ...LBL, marginBottom: '0.85rem' }}>Resumen de gastos</p>
-                {GASTOS.map(g => {
-                  const tot = catTotMap[g.id];
-                  return (
-                    <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f8fafc' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: tot.pesos > 0 ? g.color : '#e2e8f0' }} />
-                        <span style={{ fontSize: '0.78rem', color: '#475569' }}>{g.label}</span>
-                      </div>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: tot.pesos > 0 ? '#1e293b' : '#cbd5e1' }}>{fmtP(tot.pesos)}</span>
-                    </div>
-                  );
-                })}
-                <div style={{ marginTop: '0.85rem', borderTop: '2px solid #e2e8f0', paddingTop: '0.85rem' }}>
-                  {[['Total en Blanco (vía banco)', calc.enBlancoPesos], ['Total Cash (flete intl.)', calc.cashPesos]].map(([lbl, val]) => (
-                    <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', fontSize: '0.8rem', fontWeight: 600 }}>
-                      <span style={{ color: '#64748b' }}>{lbl}</span>
-                      <span style={{ color: val > 0 ? '#1e293b' : '#cbd5e1' }}>{fmtP(val)}</span>
-                    </div>
-                  ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.55rem 0.75rem', background: '#1e293b', borderRadius: '10px', marginTop: '0.5rem' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8' }}>TOTAL GENERAL</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>{fmtP(calc.totalGeneral)}</span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
