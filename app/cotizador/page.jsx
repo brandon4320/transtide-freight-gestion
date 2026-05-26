@@ -138,6 +138,9 @@ export default function Cotizador() {
   const [pFac, setPFac] = useState(8);
   const [pMrg, setPMrg] = useState(20); // solo modo personal
 
+  // ── SOCIEDAD ──
+  const [usaSociedadPropia, setUsaSociedadPropia] = useState(false); // true = cliente usa su propia sociedad
+
   // ── UI ──
   const [showClienteView, setShowClienteView] = useState(false);
 
@@ -192,9 +195,9 @@ export default function Cotizador() {
 
     // ── ESCENARIOS (solo cliente) ──
     const honorarios = totConC * hon;
-    const gastFac    = totConC * fac;
+    const gastFac    = usaSociedadPropia ? 0 : totConC * fac;
     const precioConF = totConC + honorarios + gastFac;
-    const precioSinF = totConC + honorarios;
+    const precioSinF = totConC + honorarios; // sin gastos de facturación (cuando sociedad propia)
 
     // ── RENTABILIDAD ──
     const mFOB  = fobC - fobR;
@@ -227,7 +230,7 @@ export default function Cotizador() {
     fobCliente, fobDecCli, fleteCli, gDes, gTer, gNav, gLog,
     fobReal, fobDecReal, fleteRealInput, m3Merch,
     pDer, pTas, pIva, pagaIva, pIvaA, pagaIvaA, pGan, pagaGan, pIIBB, pagaIIBB,
-    pHon, pFac, pMrg, curM3, curCosts,
+    pHon, pFac, pMrg, usaSociedadPropia, curM3, curCosts,
   ]);
 
   // ─── tabs per mode ────────────────────────────────────────────────────────
@@ -637,27 +640,63 @@ export default function Cotizador() {
                   <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#5b21b6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Honorarios & cierre</p>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
-                  <F label={`Honorarios % (s/ costo CON IVA)`}>
-                    <input type="number" step="any" min="0" value={pHon} onChange={e => setPHon(parseFloat(e.target.value) || 0)} style={INP} />
-                  </F>
-                  <F label="Gastos de Facturación % (CON factura)">
-                    <input type="number" step="any" min="0" value={pFac} onChange={e => setPFac(parseFloat(e.target.value) || 0)} style={INP} />
-                  </F>
+                {/* ── Toggle: Sociedad ── */}
+                <div style={{ marginBottom: '1rem', background: usaSociedadPropia ? '#f0fdf4' : '#eff6ff', borderRadius: '12px', padding: '0.85rem 1rem', border: `1px solid ${usaSociedadPropia ? '#bbf7d0' : '#bfdbfe'}` }}>
+                  <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>¿Qué sociedad usa el cliente para importar?</p>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => setUsaSociedadPropia(true)}
+                      style={{ flex: 1, padding: '0.6rem 0.75rem', borderRadius: '10px', border: `2px solid ${usaSociedadPropia ? '#059669' : '#e2e8f0'}`, cursor: 'pointer', background: usaSociedadPropia ? '#dcfce7' : '#fff', textAlign: 'left', transition: 'all 0.15s' }}>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 700, color: usaSociedadPropia ? '#059669' : '#64748b', marginBottom: '0.15rem' }}>
+                        {usaSociedadPropia ? '✓ ' : ''}Sociedad propia del cliente
+                      </p>
+                      <p style={{ fontSize: '0.65rem', color: usaSociedadPropia ? '#059669' : '#94a3b8' }}>
+                        Sin gastos de facturación
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => setUsaSociedadPropia(false)}
+                      style={{ flex: 1, padding: '0.6rem 0.75rem', borderRadius: '10px', border: `2px solid ${!usaSociedadPropia ? '#2563eb' : '#e2e8f0'}`, cursor: 'pointer', background: !usaSociedadPropia ? '#eff6ff' : '#fff', textAlign: 'left', transition: 'all 0.15s' }}>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 700, color: !usaSociedadPropia ? '#2563eb' : '#64748b', marginBottom: '0.15rem' }}>
+                        {!usaSociedadPropia ? '✓ ' : ''}Sociedad de Transtide
+                      </p>
+                      <p style={{ fontSize: '0.65rem', color: !usaSociedadPropia ? '#2563eb' : '#94a3b8' }}>
+                        Se suman gastos de facturación
+                      </p>
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ background: '#faf5ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e9d5ff' }}>
-                  {[
-                    ['Costo Total CON IVA', c.totConC, false],
-                    [`+ Honorarios (${pHon}%)`, c.honorarios, false],
-                    [`+ Gs. Facturación (${pFac}%)`, c.gastFac, true],
-                    ['= Precio final CON factura', c.precioConF, false, true],
-                    ['= Precio final SIN factura', c.precioSinF, false, true],
-                  ].map(([lbl, val, onlyCon, bold], i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: bold ? '0.9rem' : '0.83rem', padding: '0.38rem 0', borderBottom: i < 4 ? '1px solid #f3e8ff' : 'none', fontWeight: bold ? 700 : 400, color: bold ? '#7c3aed' : onlyCon ? '#c4b5fd' : '#475569' }}>
-                      <span>{lbl}</span><span>{usd(val)}</span>
+                <F label={`Honorarios % (s/ costo CON IVA)`}>
+                  <input type="number" step="any" min="0" value={pHon} onChange={e => setPHon(parseFloat(e.target.value) || 0)} style={INP} />
+                </F>
+
+                {!usaSociedadPropia && (
+                  <F label={`Gastos de Facturación % — sociedad Transtide`}>
+                    <input type="number" step="any" min="0" value={pFac} onChange={e => setPFac(parseFloat(e.target.value) || 0)} style={INP} />
+                  </F>
+                )}
+
+                <div style={{ background: '#faf5ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e9d5ff', marginTop: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.83rem', padding: '0.38rem 0', borderBottom: '1px solid #f3e8ff', color: '#475569' }}>
+                    <span>Costo Total CON IVA</span><span>{usd(c.totConC)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.83rem', padding: '0.38rem 0', borderBottom: '1px solid #f3e8ff', color: '#475569' }}>
+                    <span>+ Honorarios ({pHon}%)</span><span>{usd(c.honorarios)}</span>
+                  </div>
+                  {!usaSociedadPropia && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.83rem', padding: '0.38rem 0', borderBottom: '1px solid #f3e8ff', color: '#7c3aed' }}>
+                      <span>+ Gastos de Facturación ({pFac}%)</span><span>{usd(c.gastFac)}</span>
                     </div>
-                  ))}
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', padding: '0.55rem 0', fontWeight: 700, color: '#7c3aed' }}>
+                    <span>= Precio final</span><span>{usd(c.precioConF)}</span>
+                  </div>
+                  {usaSociedadPropia && (
+                    <p style={{ fontSize: '0.68rem', color: '#059669', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      ✓ Sin gastos de facturación — sociedad propia del cliente
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -694,17 +733,30 @@ export default function Cotizador() {
 
             <Card>
               <p style={{ ...SECL, margin: '0 0 0.7rem' }}>Precio final al cliente</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              {/* Sociedad badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem', padding: '0.4rem 0.7rem', background: usaSociedadPropia ? '#f0fdf4' : '#eff6ff', borderRadius: '8px', border: `1px solid ${usaSociedadPropia ? '#bbf7d0' : '#bfdbfe'}` }}>
+                <span style={{ fontSize: '0.75rem' }}>{usaSociedadPropia ? '🏢' : '🔵'}</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: usaSociedadPropia ? '#059669' : '#2563eb' }}>
+                  {usaSociedadPropia ? 'Sociedad propia — sin gastos de facturación' : 'Sociedad Transtide — incluye gastos de facturación'}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: usaSociedadPropia ? '1fr' : '1fr 1fr', gap: '0.75rem' }}>
                 <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '1rem' }}>
-                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>CON Factura</p>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+                    {usaSociedadPropia ? 'Precio final' : 'CON Factura'}
+                  </p>
                   <p style={{ fontSize: '1.45rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>{usd(c.precioConF)}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#6ee7b7', marginTop: '0.2rem' }}>Hon. {usd(c.honorarios)} + Fac. {usd(c.gastFac)}</p>
+                  <p style={{ fontSize: '0.7rem', color: '#6ee7b7', marginTop: '0.2rem' }}>
+                    Hon. {usd(c.honorarios)}{!usaSociedadPropia ? ` + Fac. ${usd(c.gastFac)}` : ''}
+                  </p>
                 </div>
-                <div style={{ background: '#fefce8', borderRadius: '12px', padding: '1rem' }}>
-                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>SIN Factura</p>
-                  <p style={{ fontSize: '1.45rem', fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{usd(c.precioSinF)}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#fcd34d', marginTop: '0.2rem' }}>Ahorro del cliente: {usd(c.gastFac)}</p>
-                </div>
+                {!usaSociedadPropia && (
+                  <div style={{ background: '#fefce8', borderRadius: '12px', padding: '1rem' }}>
+                    <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>SIN Factura</p>
+                    <p style={{ fontSize: '1.45rem', fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{usd(c.precioSinF)}</p>
+                    <p style={{ fontSize: '0.7rem', color: '#fcd34d', marginTop: '0.2rem' }}>Ahorro del cliente: {usd(c.gastFac)}</p>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.6rem' }}>
                 <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
